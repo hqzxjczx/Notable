@@ -123,11 +123,136 @@ Set-WinHomeLocation -GeoId 244   # 244 = United States
 
 ### 4.1 WebRTC 本地 IP 泄露（浏览器层，推荐优先做）
 
-WebRTC 会绕过 VPN 暴露真实内网/公网 IP。**这不是系统设置，需在浏览器处理**：
+WebRTC 会绕过 VPN 暴露真实内网/公网 IP。**这不是系统设置，需在浏览器处理**。
 
-- **Chrome/Edge**：安装扩展 "WebRTC Leak Prevent"，或在 `chrome://flags` 禁用相关项。
-- **Firefox**：`about:config` → `media.peerconnection.enabled` 设为 `false`。
-- 验证：访问 https://browserleaks.com/webrtc ，确认不泄露真实 IP。
+#### 浏览器对比
+
+| 浏览器 | 方案 | 难度 | 隐私级别 |
+|-------|------|------|---------|
+| **Firefox** ⭐ 推荐 | `about:config` 配置 + uBlock Origin | 中 | 最强 |
+| **Chrome/Edge** | `chrome://flags` + 扩展 | 易 | 强 |
+
+#### 4.1.1 Firefox 隐私配置（详细步骤）
+
+**第一步：about:config 配置三项**
+
+在 Firefox 地址栏输入 `about:config`，逐项搜索并配置（双击切换布尔值）：
+
+| 配置项 | 现值 | 改为 | 作用 |
+|-------|------|------|------|
+| `media.peerconnection.ice.default_address_only` | false | **true** | 仅使用默认网络地址，隐匿其他网卡 IP |
+| `media.peerconnection.ice.no_host` | false | **true** | 禁用 host 候选地址（防暴露真实公网 IP） |
+| `media.peerconnection.identity.enabled` | false | **true** | 启用身份验证与隐私保护 |
+
+**第二步：选择扩展方案（两种可选）**
+
+#### 方案 A：uBlock Origin（⭐ 推荐，功能全面）
+
+1. Firefox 附加组件页面搜索 **"uBlock Origin"**
+2. 点击 **"添加到 Firefox"** → 确认权限
+3. 点击 uBlock 图标 → **⚙️ 设置** → **"高级用户"** 标签页
+4. 勾选 **"Block WebRTC IP leak"** ✅
+5. 刷新浏览器或重启 Firefox
+
+**优势**：
+- ✅ 功能最全（WebRTC 防护 + 广告拦截 + 追踪防护）
+- ✅ 社区活跃，持续更新
+- ✅ 性能优秀，占用资源少
+- ✅ 同时保护其他隐私维度
+
+---
+
+#### 方案 B：WebRTC Leak Prevent（轻量级，专门防护）
+
+1. Firefox 附加组件页面搜索 **"WebRTC Leak Prevent"** 或 **"WebRTC Leak Prevent ex"**
+2. 点击 **"添加到 Firefox"** → 确认权限
+3. 点击扩展图标 → **Options** 或 **选项**
+4. 勾选以下设置：
+   - ✅ **Prevent WebRTC Leaks** （启用防护）
+   - ✅ **Block all** （阻止所有泄露）
+   - ✅ **Hide non-proxied UDP traffic** （隐匿未代理的 UDP）
+
+**优势**：
+- ✅ 体积极小，资源占用低
+- ✅ 功能单一，配置简单
+- ✅ 专门针对 WebRTC，防护精准
+- ✅ 无关功能干扰
+
+---
+
+#### 方案对比表
+
+| 维度 | uBlock Origin | WebRTC Leak Prevent |
+|------|--------------|-------------------|
+| **WebRTC 防护** | ✅ 完整 | ✅ 专精 |
+| **广告拦截** | ✅ 强大 | ❌ 无 |
+| **追踪防护** | ✅ 完整 | ❌ 无 |
+| **扩展大小** | 中等 | 极小 |
+| **配置复杂度** | 中 | 低 |
+| **资源占用** | 中等 | 极低 |
+| **推荐场景** | 全方位隐私保护 | 纯 WebRTC 防护 |
+
+**推荐选择**：
+- 👍 **首选 uBlock Origin**：一个扩展解决多个隐私问题，综合价值高
+- 🤏 **备选 WebRTC Leak Prevent**：如果设备配置低或想极简配置
+
+**第三步：验证配置**
+
+完成后访问这两个测试网站，确保不泄露本地 IP：
+
+- https://ipleak.net/（综合隐私检测）
+  - 检查 "WebRTC IP" 是否为空或显示 VPN IP
+  - 检查 "Your country" 是否为 VPN 目标国家（美国）
+  
+- https://www.browserleaks.com/webrtc（WebRTC 专项测试）
+  - 如果显示 **"No public IP address leaked"** → ✅ 防护成功
+  - 如果显示你的真实 IP 或内网 IP → ❌ 需要重新配置
+
+> **验证结果对比**：
+> - ❌ 泄露前：可能看到 `192.168.x.x` 或 `10.0.x.x`（内网）或你真实的公网 IP
+> - ✅ 防护后：显示 VPN IP 或完全隐匿
+
+---
+
+#### 4.1.2 Chrome/Edge 配置（可选）
+
+若使用 Chrome/Edge 浏览器：
+
+**方案一：扩展**（推荐）
+```
+1. Chrome 应用商店搜索 "WebRTC Leak Prevent"
+2. 添加扩展 → 点击图标 → Options
+3. 勾选 "Prevent WebRTC Leaks" + "Block all"
+4. 验证：访问 https://browserleaks.com/webrtc
+```
+
+**方案二：flags 配置**（高级）
+```
+1. 地址栏输入 chrome://flags
+2. 搜索 "WebRTC"
+3. 找到以下项，改为 "Disabled"：
+   - WebRTC Peer Connection Event Logging
+   - Restrict WebRTC IP Handling Policy
+4. 重启浏览器生效
+```
+
+---
+
+#### 4.1.3 综合验证对比表
+
+| 检测项 | 网站 | 检查内容 | 期望结果 |
+|-------|------|--------|--------|
+| **总体隐私** | ipleak.net | WebRTC IP / Country / ISP | VPN IP / 美国 / VPN ISP |
+| **WebRTC 专项** | browserleaks.com/webrtc | 候选 IP 列表 | "No public IP" 或仅显示 VPN IP |
+| **DNS 泄露** | ipleak.net | DNS 服务器 | 显示 1.1.1.1 / 8.8.8.8（非国内 DNS） |
+| **时区检测** | ipleak.net | Timezone | America/New_York（与 Windows 时区一致） |
+
+> 💡 **建议流程**：
+> 1. 配置 Firefox about:config → 重启浏览器
+> 2. 安装 uBlock Origin → 启用 WebRTC 防护
+> 3. 访问 ipleak.net 检测是否泄露
+> 4. 访问 browserleaks.com/webrtc 专项验证
+> 5. 若有泄露，检查配置是否生效（可能需要清缓存 + 重启浏览器）
 
 ### 4.2 关闭部分 Windows 遥测（风险：影响诊断/反馈）
 
@@ -220,5 +345,5 @@ netsh dns delete encryption server=8.8.8.8
 
 **文档结束**
 
-_最后更新: 2026-07-16_
+_最后更新: 2026-07-17（补充 Firefox WebRTC 防护详细配置）_
 _环境实测 + 方案定制: opencode_

@@ -119,12 +119,59 @@ defaults write NSGlobalDomain AppleMetricUnits -bool false
 
 ### 4.1 WebRTC 本地 IP 泄露（浏览器层，推荐优先做）
 
-WebRTC 会绕过 VPN 暴露真实 IP。需在浏览器处理：
+WebRTC 会绕过 VPN 暴露真实 IP。需在浏览器处理。
 
-- **Safari**：默认较严格；可在「设置 → 高级 → 显示网页开发者功能」后于「开发」菜单禁用 WebRTC（`WebRTC mDNS ICE candidates`）。
-- **Chrome**：安装扩展 "WebRTC Leak Prevent"。
-- **Firefox**：`about:config` → `media.peerconnection.enabled` = `false`。
-- 验证：访问 https://browserleaks.com/webrtc
+> ⚠️ **macOS 平台特性**：浏览器走 SakuraCat 的 `utun` 隧道，但 **WebRTC 防护与 VPN 隧道是两个独立层**。
+> 即使 VPN 已连接，WebRTC 仍可能直接探测真实网卡地址并暴露本地/公网 IP。两者必须分别配置：
+> ① 全局 VPN（隧道，已在第二/三部分配置）；② 浏览器内 WebRTC 防护（本节）。
+
+#### 4.1.1 Safari 配置（macOS 独有）
+
+Safari 默认对 WebRTC 较严格（使用 mDNS `.local` 候选隐藏真实 IP），可进一步加固：
+
+```text
+1. 打开「Safari → 设置 → 高级」，勾选「在菜单栏中显示"开发"菜单」
+2. 顶部菜单「开发」→「WebRTC」子菜单
+3. 勾选：「Disable WebRTC mDNS ICE candidates」（禁用 mDNS 候选）
+   - 或根据版本选择「Disable ICE Candidate Restrictions」以收紧候选范围
+4. 重启 Safari 生效
+```
+
+> 若需彻底关闭 Safari 的 WebRTC：在「开发 → WebRTC」中关闭「Allow Media Peer Connection」类选项
+> （不同 macOS 版本菜单名称略有差异，以实际为准）。
+
+#### 4.1.2 Firefox 配置（详细步骤，与 Windows 同源）
+
+**第一步：about:config 配置三项**（地址栏输入 `about:config`）：
+
+| 配置项 | 现值 | 改为 | 作用 |
+|-------|------|------|------|
+| `media.peerconnection.ice.default_address_only` | false | **true** | 仅用默认网络地址，隐匿其他网卡 IP |
+| `media.peerconnection.ice.no_host` | false | **true** | 禁用 host 候选（防暴露真实公网 IP） |
+| `media.peerconnection.enabled` | true | **false** | 彻底禁用 WebRTC（最彻底，影响音视频通话）|
+
+**第二步：扩展（推荐 uBlock Origin）**
+- Firefox 附加组件搜索 **"uBlock Origin"** → 添加 → ⚙️ 设置 → 高级用户 → 勾选 **"Block WebRTC IP leak"**。
+
+> 或安装 **"WebRTC Leak Prevent"** 轻量扩展，选项里勾选 Prevent WebRTC Leaks + Block all。
+
+#### 4.1.3 Chrome / Edge 配置（macOS 上同 Windows 同源）
+
+> macOS 上 Chrome/Edge 基于 Chromium，行为一致；`chrome://` 在 Edge 为 `edge://`。
+
+- **扩展（推荐）**：Chrome 网上应用店搜 "WebRTC Leak Prevent" → Options → 勾选 Prevent WebRTC Leaks + Block all。
+- **flags（高级）**：`chrome://flags` 搜索 WebRTC → 将 `WebRTC Peer Connection Event Logging`、
+  `Restrict WebRTC IP Handling Policy` 改为 Disabled → 重启。
+
+#### 4.1.4 验证
+
+完成后访问：
+- https://ipleak.net/ —— 检查 "WebRTC IP" 应为空或显示 VPN IP；"Your country" 应为美国。
+- https://www.browserleaks.com/webrtc —— 显示 **"No public IP address leaked"** 即成功。
+
+> 验证结果对比：
+> - ❌ 泄露前：看到 `192.168.x.x` / `10.0.x.x`（内网）或真实公网 IP
+> - ✅ 防护后：显示 VPN IP 或完全隐匿
 
 ### 4.2 关闭定位服务（风险：影响查找/地图/天气）
 

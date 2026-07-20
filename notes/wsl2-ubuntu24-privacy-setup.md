@@ -278,8 +278,25 @@ wsl --update
 ### ✅ 推荐做法
 1. 所有隐私操作都在 Ubuntu-24.04 里进行，保持 22.04 干净。
 2. 每周运行第六步验证脚本一次。
-3. 定期 `curl https://ipinfo.io` 确认伪装有效。
+3. 定期 `curl https://1.1.1.1/cdn-cgi/trace` 确认伪装有效。
 4. 保留 `~/wsl2-backup/` 备份。
+
+---
+
+## 第九步：浏览器 WebRTC 泄露提醒（重要，不在 WSL2 内）
+
+> ⚠️ **平台特性**：WSL2 的隐私配置（时区/DNS/代理）**不涵盖浏览器 WebRTC 泄露**。
+> 浏览器通常运行在 **Windows 宿主机**（或 macOS 宿主机），不在 WSL2 内；而 WebRTC 可在 VPN 已连接时
+> 仍直接探测真实网卡并暴露本地/公网 IP。这是独立于 VPN 隧道的另一层泄露面。
+
+**结论**：WebRTC 防护需在**宿主机浏览器**处理，而非 WSL2：
+
+- **Windows 宿主机**：见 `windows-host-privacy-setup.md` 第四部分 4.1（Firefox/Chrome/Edge 详细步骤）。
+- **macOS 宿主机**：见 `macos-host-privacy-setup.md` 第四部分 4.1（含 Safari 专属步骤）。
+- **Apple Container**：纯 CLI/服务容器，无浏览器层，无需处理。
+
+> 在 WSL2 里即使 `curl` 出口 IP 已是美国，也**不代表**你在宿主机浏览器里安全——
+> 请用 https://browserleaks.com/webrtc 在宿主机浏览器实测确认无泄露。
 
 ---
 

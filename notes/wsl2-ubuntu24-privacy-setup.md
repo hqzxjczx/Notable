@@ -17,12 +17,12 @@
 | SakuraCat 进程 | 运行中（5 个进程）|
 | SakuraCat 监听端口 | **无任何 TCP 监听端口** |
 | 网络适配器 | 存在 `Meta` / `Meta Tunnel` 虚拟网卡 |
-| 结论 | SakuraCat 使用 **TUN 模式**，流量经虚拟网卡全局路由，**不需要** `127.0.0.1:7890` 端口代理 |
+| 结论 | SakuraCat 使用 **TUN 模式**，流量经虚拟网卡全局路由，**不需要** `127.0.0.1:7897` 端口代理 |
 | 时区 | America/New_York (UTC-5) |
 | 语言 | en_US.UTF-8 |
 
 > ⚠️ **重要**：因为是 TUN 模式，本清单中的代理环境变量（http_proxy 等）**默认注释掉**。
-> 若强行启用指向 7890 的代理变量，WSL2 里所有 `curl`/`apt`/`git` 会因端口未监听而**连接失败**。
+> 若强行启用指向 7897 的代理变量，WSL2 里所有 `curl`/`apt`/`git` 会因端口未监听而**连接失败**。
 > TUN 模式下 WSL2 流量本身即经 Windows 主机路由走隧道，进入系统后用第 6 步的 `ipinfo.io` 验证即可。
 
 ---
@@ -138,13 +138,13 @@ export TZ="America/New_York"
 
 # ===== SakuraCat 代理配置（默认注释：当前为 TUN 模式，无需端口代理）=====
 # 仅当你在 SakuraCat 中切换到"端口/系统代理模式"并确认真实端口后，
-# 才取消下面注释，并把 7890 替换为实际端口。
-# export http_proxy="http://127.0.0.1:7890"
-# export https_proxy="http://127.0.0.1:7890"
-# export all_proxy="socks5://127.0.0.1:7890"
-# export HTTP_PROXY="http://127.0.0.1:7890"
-# export HTTPS_PROXY="http://127.0.0.1:7890"
-# export ALL_PROXY="socks5://127.0.0.1:7890"
+# 才取消下面注释，并把 7897 替换为实际端口。
+# export http_proxy="http://127.0.0.1:7897"
+# export https_proxy="http://127.0.0.1:7897"
+# export all_proxy="socks5://127.0.0.1:7897"
+# export HTTP_PROXY="http://127.0.0.1:7897"
+# export HTTPS_PROXY="http://127.0.0.1:7897"
+# export ALL_PROXY="socks5://127.0.0.1:7897"
 EOF
 echo "bashrc 配置完成"
 ```

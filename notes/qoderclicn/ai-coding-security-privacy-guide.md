@@ -240,9 +240,9 @@ scutil --dns | grep "nameserver"
 
 ```bash
 # ~/.zshrc 中配置
-export https_proxy="http://127.0.0.1:7890"
-export http_proxy="http://127.0.0.1:7890"
-export all_proxy="socks5://127.0.0.1:7890"
+export https_proxy="http://127.0.0.1:7897"
+export http_proxy="http://127.0.0.1:7897"
+export all_proxy="socks5://127.0.0.1:7897"
 export no_proxy="localhost,127.0.0.1"
 
 # 验证出口 IP
@@ -318,9 +318,9 @@ wsl --shutdown
 ```bash
 # ~/.bashrc 中
 WIN_HOST=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
-export http_proxy="http://${WIN_HOST}:7890"
-export https_proxy="http://${WIN_HOST}:7890"
-export all_proxy="socks5://${WIN_HOST}:7890"
+export http_proxy="http://${WIN_HOST}:7897"
+export https_proxy="http://${WIN_HOST}:7897"
+export all_proxy="socks5://${WIN_HOST}:7897"
 export no_proxy="localhost,127.0.0.1"
 
 # 验证
@@ -355,8 +355,8 @@ docker run -it --rm \
   -e TZ="America/New_York" \
   -e LANG="en_US.UTF-8" \
   -e LC_ALL="en_US.UTF-8" \
-  -e https_proxy="http://host.docker.internal:7890" \
-  -e http_proxy="http://host.docker.internal:7890" \
+  -e https_proxy="http://host.docker.internal:7897" \
+  -e http_proxy="http://host.docker.internal:7897" \
   -v $(pwd):/workspace \
   -w /workspace \
   node:20 bash
@@ -383,8 +383,8 @@ colima start --cpu 4 --memory 8
 ENV TZ=America/New_York
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
-ENV https_proxy=http://host.docker.internal:7890
-ENV http_proxy=http://host.docker.internal:7890
+ENV https_proxy=http://host.docker.internal:7897
+ENV http_proxy=http://host.docker.internal:7897
 ```
 
 ### macOS 内置 Seatbelt 沙箱

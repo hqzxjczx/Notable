@@ -414,6 +414,12 @@ docker run --rm `
 
 ---
 
+
+## 相关资源
+
+- 跨平台总览与 qoderclicn 配套（AI 编码防封）见 `privacy-overview.md` 第七章。
+- 终端 / Docker 多区域切换可参考 `qoderclicn/switch-env-wsl2.sh`（端口需改 7897）。
+
 **文档结束**
 
 _最后更新: 2026-07-22（补充 Firefox WebRTC 详细配置 + 第七部分 7897 代理端口用法）_

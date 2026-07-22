@@ -3,7 +3,7 @@
 > **用途**: 在 Windows WSL2 中集成 SakuraCat VPN 进行完整隐私保护
 > **时间**: 2026-07-16
 > **VPN 客户端**: SakuraCat (https://c1-sakuracat.com/dashboard)
-> **VPN 监听端口**: 7890 (HTTP/SOCKS5)
+> **VPN 监听端口**: 7897 (HTTP/SOCKS5)
 > **目标**: 时区隐私 + 语言隐私 + DNS 隐私 + 完整网络隐私
 
 ---
@@ -14,8 +14,8 @@
 |------|-----|
 | VPN 官方网站 | https://c1-sakuracat.com/dashboard |
 | Windows 客户端 | SakuraCat |
-| HTTP 代理端口 | 7890 |
-| SOCKS5 代理端口 | 7890 |
+| HTTP 代理端口 | 7897 |
+| SOCKS5 代理端口 | 7897 |
 | DNS 服务器 | 8.8.8.8, 1.1.1.1 |
 | 推荐时区 | America/New_York (UTC-5) 或 UTC |
 | 推荐语言 | en_US.UTF-8 |
@@ -37,9 +37,9 @@
 - [ ] 打开 PowerShell
 - [ ] 执行测试命令:
   ```powershell
-  Test-NetConnection -ComputerName 127.0.0.1 -Port 7890 -WarningAction SilentlyContinue
+  Test-NetConnection -ComputerName 127.0.0.1 -Port 7897 -WarningAction SilentlyContinue
   ```
-- [ ] 应显示 `TcpTestSucceeded: True`（表示 7890 端口可连接）
+- [ ] 应显示 `TcpTestSucceeded: True`（表示 7897 端口可连接）
 
 **任务 P1.3: 保持 SakuraCat 运行**
 - [ ] 不要关闭 SakuraCat 应用
@@ -184,17 +184,17 @@
 - [ ] 编辑: `nano ~/.bashrc`
 - [ ] 在末尾添加以下代理配置:
   ```bash
-  # SakuraCat VPN 代理配置（端口：7890）
-  export http_proxy="http://127.0.0.1:7890"
-  export https_proxy="http://127.0.0.1:7890"
-  export all_proxy="socks5://127.0.0.1:7890"
-  export HTTP_PROXY="http://127.0.0.1:7890"
-  export HTTPS_PROXY="http://127.0.0.1:7890"
-  export ALL_PROXY="socks5://127.0.0.1:7890"
+  # SakuraCat VPN 代理配置（端口：7897）
+  export http_proxy="http://127.0.0.1:7897"
+  export https_proxy="http://127.0.0.1:7897"
+  export all_proxy="socks5://127.0.0.1:7897"
+  export HTTP_PROXY="http://127.0.0.1:7897"
+  export HTTPS_PROXY="http://127.0.0.1:7897"
+  export ALL_PROXY="socks5://127.0.0.1:7897"
   ```
 
 **说明**:
-- `127.0.0.1:7890` 是 SakuraCat 在 Windows 宿主机的代理地址
+- `127.0.0.1:7897` 是 SakuraCat 在 Windows 宿主机的代理地址
 - HTTP/HTTPS 流量走 HTTP 代理
 - 其他流量走 SOCKS5 代理
 
@@ -205,7 +205,7 @@
 - [ ] 确保 SakuraCat 仍然运行（Windows 侧）
 - [ ] 在 WSL2 中测试:
   ```bash
-  curl -v http://127.0.0.1:7890
+  curl -v http://127.0.0.1:7897
   ```
 - [ ] 应该有响应（不需要完全成功，有连接即可）
 
@@ -255,7 +255,7 @@
   - ✅ 语言应为 en_US.UTF-8
   - ✅ DNS 应为 8.8.8.8 或 1.1.1.1
   - ✅ DNS 解析应返回 8.8.8.8
-  - ✅ 代理应为 127.0.0.1:7890
+  - ✅ 代理应为 127.0.0.1:7897
 
 **任务 5.3: 验证 IP 和地理位置伪装（需要网络）**
 - [ ] 安装 curl（通常已预装）
@@ -402,14 +402,14 @@ cat /etc/wsl.conf | grep -A 2 "\[network\]"
 # 应显示多个 SakuraCat 进程
 
 # 2. 验证代理端口开放
-Test-NetConnection -ComputerName 127.0.0.1 -Port 7890
+Test-NetConnection -ComputerName 127.0.0.1 -Port 7897
 
 # 3. 检查代理环境变量
 echo $http_proxy
-# 应显示 http://127.0.0.1:7890
+# 应显示 http://127.0.0.1:7897
 
 # 4. 如果仍不工作，检查 SakuraCat 设置
-# 打开 SakuraCat GUI，确认代理已启用且端口是 7890
+# 打开 SakuraCat GUI，确认代理已启用且端口是 7897
 ```
 
 ### 问题 T3: WSL 无法启动
@@ -496,8 +496,8 @@ wsl
 
 | 协议 | 端口 | 说明 |
 |------|------|------|
-| HTTP | 7890 | Web 代理，用于 HTTP/HTTPS 流量 |
-| SOCKS5 | 7890 | 全协议代理，用于 UDP/TCP 流量 |
+| HTTP | 7897 | Web 代理，用于 HTTP/HTTPS 流量 |
+| SOCKS5 | 7897 | 全协议代理，用于 UDP/TCP 流量 |
 | 管理界面 | 可能为 6001 或其他 | SakuraCat 控制面板（仅 Windows 侧） |
 
 ---
@@ -525,8 +525,8 @@ WSL2 隐私配置问题
 ├─ 代理问题
 │  ├─ SakuraCat 在 Windows 运行吗？
 │  │  └─ 否 → 启动 SakuraCat
-│  ├─ 端口 7890 开放吗？
-│  │  └─ 否 → 检查 SakuraCat 设置，确认监听 7890
+│  ├─ 端口 7897 开放吗？
+│  │  └─ 否 → 检查 SakuraCat 设置，确认监听 7897
 │  ├─ 环境变量设置正确？
 │  │  └─ 否 → 编辑 ~/.bashrc，重新配置
 │  └─ source ~/.bashrc 了吗？

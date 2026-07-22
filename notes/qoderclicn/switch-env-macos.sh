@@ -6,6 +6,10 @@
 #   ./switch-env-macos.sh jp    # 切换到日本环境
 #   ./switch-env-macos.sh cn    # 恢复中国环境
 #   ./switch-env-macos.sh check # 仅检查当前状态
+#
+# 注意：本脚本通过 networksetup 手动设置系统 DNS（1.1.1.1 / 1.0.0.1）。
+# 若你已使用 Cloudflare WARP 的「仅 DNS」模式做 DNS 加密，请勿同时运行本脚本的
+# DNS 部分，否则手动 DNS 会覆盖 WARP，造成冲突。二选一即可。
 
 set -e
 
@@ -40,8 +44,8 @@ declare -A LANG_MAP=(
 DNS_PRIMARY="1.1.1.1"
 DNS_SECONDARY="1.0.0.1"
 
-# 代理端口（根据实际代理软件修改）
-PROXY_PORT="7890"
+# 代理端口（根据实际代理软件修改；SakuraCat 混合端口为 7897）
+PROXY_PORT="7897"
 
 # ============ 函数 ============
 
@@ -192,7 +196,7 @@ case "$REGION" in
     restore_dns
 
     # 移除代理配置
-    local SHELL_RC="$HOME/.zshrc"
+    SHELL_RC="$HOME/.zshrc"
     sed -i '' '/# === ENV-CONSISTENCY-PROXY ===/,/# === END-ENV-CONSISTENCY-PROXY ===/d' "$SHELL_RC" 2>/dev/null || true
     echo "[5/5] 已移除终端代理配置"
     echo ""

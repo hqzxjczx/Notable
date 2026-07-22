@@ -267,10 +267,10 @@
   ```bash
   # 动态获取宿主机在虚拟网卡中的 IP
   export HOST_IP=$(ip route | grep default | awk '{print $3}')
-  # 假设你的 Windows 代理软件开放的本地局域网端口是 7890
-  export http_proxy="http://${HOST_IP}:7890"
-  export https_proxy="http://${HOST_IP}:7890"
-  export all_proxy="socks5://${HOST_IP}:7890"
+  # 假设你的 Windows 代理软件开放的本地局域网端口是 7897
+  export http_proxy="http://${HOST_IP}:7897"
+  export https_proxy="http://${HOST_IP}:7897"
+  export all_proxy="socks5://${HOST_IP}:7897"
   ```
 - [ ] 保存并生效: `source ~/.bashrc`
 

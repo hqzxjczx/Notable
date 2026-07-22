@@ -33,9 +33,10 @@ declare -A LOCALE_MAP=(
   ["sg"]="en_SG.UTF-8"
 )
 
-# 代理配置（host.docker.internal 指向 macOS 宿主机）
-PROXY_HOST="host.docker.internal"
-PROXY_PORT="7890"
+# 代理配置（Apple Container 用 host.container.internal 指向 macOS 宿主机；
+# 若用 Docker Desktop / OrbStack / Colima，请改为 host.docker.internal）
+PROXY_HOST="host.container.internal"
+PROXY_PORT="7897"
 
 # 工作目录（挂载到容器内）
 WORKSPACE="${HOME}/workspace"

@@ -37,8 +37,8 @@ declare -A LOCALE_MAP=(
 DNS_PRIMARY="1.1.1.1"
 DNS_SECONDARY="1.0.0.1"
 
-# 代理端口（Windows 宿主机上的代理软件端口）
-PROXY_PORT="7890"
+# 代理端口（Windows 宿主机上的代理软件端口；SakuraCat 混合端口为 7897）
+PROXY_PORT="7897"
 
 # ============ 函数 ============
 

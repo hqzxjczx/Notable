@@ -2,7 +2,7 @@
 
 > **用途**: 在 Windows 10 宿主机层面配置隐私保护，与 WSL2 (Ubuntu-24.04) 隐私方案配套
 > **时间**: 2026-07-16
-> **VPN 客户端**: SakuraCat（TUN 模式，Meta Tunnel 虚拟网卡）
+> **VPN 客户端**: SakuraCat（**TUN 模式**，Meta Tunnel 虚拟网卡；宿主机同时暴露**本地混合端口 7897** 供终端 / Docker 容器显式使用，与 macOS 端端口一致）
 > **配套文档**: `wsl2-ubuntu24-privacy-setup.md`
 > **目标**: 时区隐私 + DNS 隐私 + 区域隐私（+ 可选进阶项）
 
@@ -37,6 +37,7 @@
 | 清 DNS 缓存 | `Clear-DnsClientCache` |
 | 查看区域 | `Get-WinSystemLocale; Get-Culture` |
 | 验证出口 IP | `(Invoke-RestMethod https://1.1.1.1/cdn-cgi/trace)` |
+| 宿主代理端口 | `127.0.0.1:7897`（SakuraCat 混合端口，终端 / Docker 用） |
 
 ---
 
@@ -362,7 +363,58 @@ netsh dns delete encryption server=8.8.8.8
 
 ---
 
+## 第七部分：Windows 宿主机 7897 代理端口用法（终端 / Docker 容器）
+
+> **背景**：SakuraCat 在 Windows 上以 **TUN 模式**运行（Meta Tunnel 已抓全系统流量，含终端 / Git / 浏览器），
+> 因此绝大多数程序**无需**手动设代理。但客户端**同时监听本地混合端口 7897**（HTTP + SOCKS5），
+> 在以下场景需显式使用：① Docker 容器（独立网络命名空间，不继承 TUN）；② 个别绕过 TUN 的 App；③ 与 macOS 端保持端口一致（同为 7897）。
+
+### 7.1 设置 Windows 系统代理（可选，与 macOS 对齐）
+
+若希望宿主机某些 App 显式走 7897（而非 TUN），可在「设置 → 网络 → 代理」填入：
+- 地址 `127.0.0.1`，端口 `7897`（HTTP / HTTPS）
+- 或用 PowerShell：
+
+```powershell
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -Name ProxyServer -Value "127.0.0.1:7897"
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -Name ProxyEnable -Value 1
+```
+
+> ⚠️ TUN 已在更底层抓包，设系统代理通常冗余但无害；**容器场景才真正需要**。
+
+### 7.2 终端 / PowerShell 临时代理
+
+```powershell
+$env:http_proxy  = "http://127.0.0.1:7897"
+$env:https_proxy = "http://127.0.0.1:7897"
+$env:all_proxy   = "socks5://127.0.0.1:7897"
+# 验证
+(Invoke-RestMethod https://1.1.1.1/cdn-cgi/trace) | Select-String -Pattern "ip=|loc="
+```
+
+### 7.3 Docker 容器（Windows 宿主机）
+
+Docker 容器在独立网络，**不继承 TUN**，必须显式指向宿主机 7897。Docker Desktop 用 `host.docker.internal` 解析到宿主机：
+
+```powershell
+docker run --rm `
+  -e http_proxy=http://host.docker.internal:7897 `
+  -e https_proxy=http://host.docker.internal:7897 `
+  -e all_proxy=socks5://host.docker.internal:7897 `
+  alpine/curl curl -s https://1.1.1.1/cdn-cgi/trace
+```
+
+> 若用 **WSL2 后端**的 Docker，容器实际跑在 WSL2 内、已继承 TUN，可能无需代理；但 Hyper-V 后端下显式设 `host.docker.internal:7897` 更稳妥。
+> DNS 同 macOS 容器：显式 `--dns 1.1.1.1`。
+
+### 7.4 一致性提示
+
+- Windows 宿主机与 macOS 端 SakuraCat **端口统一为 7897**（跨平台一致）。
+- 若关闭 TUN 只留代理模式，则宿主机所有流量都需依赖 7897（与 macOS 代理模式等价）。
+
+---
+
 **文档结束**
 
-_最后更新: 2026-07-17（补充 Firefox WebRTC 防护详细配置）_
+_最后更新: 2026-07-22（补充 Firefox WebRTC 详细配置 + 第七部分 7897 代理端口用法）_
 _环境实测 + 方案定制: opencode_

@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: ""
+title: Notable 私人知识库与跨平台隐私设置文档集
+scope:
+    - notes/
+    - README.md
+source_files: []
+depends_on: []
+related_to: []

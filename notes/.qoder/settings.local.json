@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s --max-time 5 -x http://127.0.0.1:7897 https://httpbin.org/ip 2>&1 || echo \"PROXY_FAILED\")",
+      "Bash(grep -n \"dialer-proxy\" \"/Users/fatestayzerotw/Library/Application Support/io.github.clash-verge-rev.clash-verge-rev/clash-verge.yaml\" 2>/dev/null; echo \"---\"; grep -n \"dialer-proxy\" \"/Users/fatestayzerotw/Library/Application Support/io.github.clash-verge-rev.clash-verge-rev/config.yaml\" 2>/dev/null)",
+      "Read(//Users/fatestayzerotw/Library/Application Support/io.github.clash-verge-rev.clash-verge-rev/**)",
+      "Bash(ls \"/Volumes/LuLu v4.3.2/\" 2>/dev/null)",
+      "Read(//Volumes/LuLu v4.3.2/**)",
+      "Bash(echo \"=== .zshrc MACOS-PRIVACY blocks ===\" && grep -n 'MACOS-PRIVACY\\\\|BEGIN.*LOCALE\\\\|END.*LOCALE\\\\|BEGIN.*PROXY\\\\|END.*PROXY\\\\|http_proxy\\\\|LANG=\\\\|LC_ALL=' ~/.zshrc 2>/dev/null || echo \"no .zshrc or no blocks\" && echo \"=== .bashrc / .bash_profile ===\" && ls -la ~/.bashrc ~/.bash_profile 2>/dev/null && echo \"=== Ghostty config ===\" && ls -la ~/Library/Application\\\\ Support/com.mitchellh.ghostty/config 2>/dev/null || ls -la ~/.config/ghostty/config 2>/dev/null || echo \"no ghostty config found\")",
+      "Read(//Users/fatestayzerotw/**)",
+      "Bash(echo \"=== Ghostty config locations ===\" && find ~/Library/Application\\\\ Support -name \"config\" -path \"*ghostty*\" 2>/dev/null && find ~/.config -name \"config\" -path \"*ghostty*\" 2>/dev/null && echo \"=== Ghostty default shell ===\" && echo \"=== /etc/shells ===\" && cat /etc/shells && echo \"=== .bash_profile / .bashrc ===\" && cat ~/.bash_profile 2>/dev/null || echo \"no .bash_profile\" && echo \"---\" && cat ~/.bashrc 2>/dev/null || echo \"no .bashrc\")",
+      "Read(//private/etc/**)"
+    ]
+  }
+}

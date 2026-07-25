@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"=== 时区 ===\"; sudo systemsetup -gettimezone 2>/dev/null || systemsetup -gettimezone 2>/dev/null || echo \"需要sudo\"; echo \"=== 区域 ===\"; defaults read NSGlobalDomain AppleLocale 2>/dev/null; echo \"=== 语言 ===\"; defaults read NSGlobalDomain AppleLanguages 2>/dev/null; echo \"=== IPv6 ===\"; networksetup -getinfo Wi-Fi 2>/dev/null | grep -i IPv6; echo \"=== 系统代理 ===\"; networksetup -getwebproxy Wi-Fi 2>/dev/null; networksetup -getsecurewebproxy Wi-Fi 2>/dev/null; networksetup -getsocksfirewallproxy Wi-Fi 2>/dev/null; echo \"=== 终端代理 ===\"; echo \"http_proxy=${http_proxy:-未设置}\"; echo \"https_proxy=${https_proxy:-未设置}\"; echo \"all_proxy=${all_proxy:-未设置}\"; echo \"=== WARP ===\"; warp-cli status 2>/dev/null || echo \"warp-cli 不可用\"; echo \"=== DNS ===\"; scutil --dns 2>/dev/null | grep -m5 nameserver; echo \"=== 出口IP ===\"; curl -s --max-time 8 https://1.1.1.1/cdn-cgi/trace 2>/dev/null | grep -E 'ip=|loc=|colo=' || echo \"无法获取\")",
+      "Bash(warp-cli status 2>&1; echo \"---\"; warp-cli get settings 2>&1 | head -30)",
+      "Bash(ps aux | grep -i \"Cloudflare\" | grep -v grep; echo \"---\"; ls /Applications/ | grep -i warp; echo \"---\"; ls /Library/LaunchDaemons/ 2>/dev/null | grep -i warp; ls ~/Library/LaunchAgents/ 2>/dev/null | grep -i warp)",
+      "Read(//Applications/**)",
+      "Bash(cat /Library/LaunchDaemons/com.cloudflare.1dot1dot1dot1.macos.warp.daemon.plist 2>&1)",
+      "Read(//Library/LaunchDaemons/**)",
+      "WebFetch(*)",
+      "Bash(mv:*)"
+    ]
+  }
+}

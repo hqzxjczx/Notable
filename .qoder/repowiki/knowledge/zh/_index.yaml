@@ -1,0 +1,17 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+branch: master
+nodes_managed: true
+exported_at: "2026-07-23T09:39:19Z"
+modules:
+    "":
+        dir_name: Notable 私人知识库与跨平台隐私设置文档集
+        title: Notable 私人知识库与跨平台隐私设置文档集
+        scope:
+            - notes/
+            - README.md
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []

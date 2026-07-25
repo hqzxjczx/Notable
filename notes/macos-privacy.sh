@@ -4,8 +4,11 @@
 # 架构: SakuraCat 代理模式(127.0.0.1:7897) 负责流量出口
 #      + Cloudflare WARP(1.1.1.1 DNS 模式, 非全隧道) 负责 DNS 加密
 #
+# 兼容: bash 3.2 (sudo secure_path) / bash 5+ (brew) — 无关联数组、无 bashisms
+# 终端: 写入 .zshrc (Ghostty/zsh) + .bashrc (brew bash) + .bash_profile (login bash)
+#
 # 子命令:
-#   sudo  ./macos-privacy.sh apply [区域]   # 应用时区/区域/系统代理/终端代理/IPv6（默认 us）
+#   sudo  ./macos-privacy.sh apply [区域]   # 应用时区/区域/系统代理/终端代理/IPv6/浏览器语言（默认 us）
 #   ./macos-privacy.sh verify              # 验证关键项（无需 sudo）
 #   ./macos-privacy.sh check               # 打印当前环境状态（无需 sudo）
 #   sudo  ./macos-privacy.sh restore       # 恢复默认
@@ -22,23 +25,41 @@ PROXY_HOST="127.0.0.1"
 PROXY_PORT="${PROXY_PORT:-7897}"
 INTERFACE="${INTERFACE:-Wi-Fi}"
 WARP_DNS="1.1.1.1"
-SHELL_RC="$HOME/.zshrc"
+SHELL_RCS=("$HOME/.zshrc" "$HOME/.bashrc")
+BASH_PROFILE="$HOME/.bash_profile"
 MARK_PROXY="# === MACOS-PRIVACY-PROXY ==="
 END_PROXY="# === END-MACOS-PRIVACY-PROXY ==="
 MARK_LOCALE="# === MACOS-PRIVACY-LOCALE ==="
 END_LOCALE="# === END-MACOS-PRIVACY-LOCALE ==="
 
 # 区域映射（与三端一致性规则一致；us 为隐私默认区域）
-declare -A TZ_MAP=(
-  [us]=America/New_York [jp]=Asia/Tokyo [uk]=Europe/London
-  [sg]=Asia/Singapore [cn]=Asia/Shanghai
-)
-declare -A LOCALE_MAP=(
-  [us]=en_US [jp]=ja_JP [uk]=en_GB [sg]=en_SG [cn]=zh_CN
-)
-declare -A LANG_MAP=(
-  [us]=en-US [jp]=ja-JP [uk]=en-GB [sg]=en-SG [cn]=zh-Hans-CN
-)
+# 使用 case 函数代替 declare -A（macOS 自带 bash 3.2 不支持关联数组）
+get_tz(){
+  case "$1" in
+    us) echo "America/New_York" ;; jp) echo "Asia/Tokyo" ;;
+    uk) echo "Europe/London" ;; sg) echo "Asia/Singapore" ;;
+    cn) echo "Asia/Shanghai" ;; *) echo "America/New_York" ;;
+  esac
+}
+get_locale(){
+  case "$1" in
+    us) echo "en_US" ;; jp) echo "ja_JP" ;; uk) echo "en_GB" ;;
+    sg) echo "en_SG" ;; cn) echo "zh_CN" ;; *) echo "en_US" ;;
+  esac
+}
+get_lang(){
+  case "$1" in
+    us) echo "en-US" ;; jp) echo "ja-JP" ;; uk) echo "en-GB" ;;
+    sg) echo "en-SG" ;; cn) echo "zh-Hans-CN" ;; *) echo "en-US" ;;
+  esac
+}
+get_accept_lang(){
+  case "$1" in
+    us) echo "en-US,en" ;; jp) echo "ja-JP,ja,en-US,en" ;;
+    uk) echo "en-GB,en,en-US" ;; sg) echo "en-SG,en,en-US" ;;
+    cn) echo "zh-Hans-CN,zh,en-US,en" ;; *) echo "en-US,en" ;;
+  esac
+}
 
 if [ -t 1 ]; then
   GREEN=$'\033[32m'; RED=$'\033[31m'; YEL=$'\033[33m'; BLU=$'\033[34m'; RST=$'\033[0m'
@@ -61,19 +82,47 @@ active_services(){
   networksetup -listallnetworkservices 2>/dev/null | grep -v "An asterisk" | grep -v "^$" || true
 }
 
-# 幂等移除 $SHELL_RC 中 [mark, end] 标记块
+# 幂等移除指定 RC 文件中 [mark, end] 标记块
 clear_block(){
-  local s="$1" e="$2"
-  sed -i '' "/$s/,/$e/d" "$SHELL_RC" 2>/dev/null || true
+  local f="$1" s="$2" e="$3"
+  [ -f "$f" ] && sed -i '' "/$s/,/$e/d" "$f" 2>/dev/null || true
+}
+
+# 设置 Chrome per-profile Accept-Language（Chrome 有独立语言设置，覆盖系统语言）
+set_browser_languages(){
+  local accept_lang="$1"
+  local chrome_dir="$HOME/Library/Application Support/Google/Chrome"
+  [ ! -d "$chrome_dir" ] && { wn "Chrome 未安装：浏览器语言跳过"; return 0; }
+  python3 - "$chrome_dir" "$accept_lang" <<'PYEOF'
+import json, os, sys, glob
+chrome_dir, accept_lang = sys.argv[1], sys.argv[2]
+updated = []
+# Local State（全局）
+ls = os.path.join(chrome_dir, "Local State")
+if os.path.exists(ls):
+    d = json.load(open(ls))
+    d.setdefault("intl", {})["accept_languages"] = accept_lang
+    d["intl"]["selected_languages"] = accept_lang
+    json.dump(d, open(ls, "w"), indent=2, ensure_ascii=False)
+    updated.append("Local State")
+# 所有 Profile 的 Preferences
+for p in sorted(glob.glob(os.path.join(chrome_dir, "Default*/Preferences"))):
+    d = json.load(open(p))
+    d.setdefault("intl", {})["accept_languages"] = accept_lang
+    d["intl"]["selected_languages"] = accept_lang
+    json.dump(d, open(p, "w"), indent=2, ensure_ascii=False)
+    updated.append(os.path.basename(os.path.dirname(p)))
+print(", ".join(updated) if updated else "no profiles")
+PYEOF
 }
 
 # ---------- apply ----------
 apply(){
   need_sudo apply
   local region="${1:-us}"
-  local tz="${TZ_MAP[$region]:-America/New_York}"
-  local locale="${LOCALE_MAP[$region]:-en_US}"
-  local lang="${LANG_MAP[$region]:-en-US}"
+  local tz="$(get_tz "$region")"
+  local locale="$(get_locale "$region")"
+  local lang="$(get_lang "$region")"
   info "应用 macOS 隐私配置 (区域=$region, 代理 $PROXY_HOST:$PROXY_PORT + WARP DNS)"
 
   # 1) 时区：关自动时区，设目标（保留网络时间防漂移）
@@ -85,6 +134,11 @@ apply(){
   defaults write NSGlobalDomain AppleLanguages -array "$lang"
   defaults write NSGlobalDomain AppleLocale -string "$locale"
   ok "区域 / 语言 → $locale"
+
+  # 2b) 浏览器 Accept-Language（Chrome per-profile 覆盖系统语言）
+  local accept_lang="$(get_accept_lang "$region")"
+  local updated_profiles; updated_profiles=$(set_browser_languages "$accept_lang")
+  ok "浏览器 Accept-Language → $accept_lang (Chrome: $updated_profiles)"
 
   # 3) IPv6 关闭（所有活跃接口，防绕过 WARP DNS）
   while IFS= read -r svc; do
@@ -106,29 +160,38 @@ apply(){
     wn "跳过系统代理设置（SKIP_PROXY=1）"
   fi
 
-  # 5) 终端 locale 块 + (可选) 代理块（写入 .zshrc，幂等）
-  clear_block "$MARK_PROXY" "$END_PROXY"
-  clear_block "$MARK_LOCALE" "$END_LOCALE"
-  {
-    if [ "${SKIP_PROXY:-0}" != "1" ]; then
-      echo "$MARK_PROXY"
-      echo "export http_proxy=\"http://$PROXY_HOST:$PROXY_PORT\""
-      echo "export https_proxy=\"http://$PROXY_HOST:$PROXY_PORT\""
-      echo "export all_proxy=\"socks5://$PROXY_HOST:$PROXY_PORT\""
-      echo "export no_proxy=\"localhost,127.0.0.1,::1\""
-      echo "$END_PROXY"
-    fi
-    echo "$MARK_LOCALE"
-    echo "export LANG=\"${locale}.UTF-8\""
-    echo "export LC_ALL=\"${locale}.UTF-8\""
-    echo "export LC_CTYPE=\"${locale}.UTF-8\""
-    echo "export LANGUAGE=\"${locale}:${locale}\""
-    echo "$END_LOCALE"
-  } >> "$SHELL_RC"
+  # 5) 终端 locale 块 + (可选) 代理块（写入 .zshrc + .bashrc，幂等）
+  for rc in "${SHELL_RCS[@]}"; do
+    clear_block "$rc" "$MARK_PROXY" "$END_PROXY"
+    clear_block "$rc" "$MARK_LOCALE" "$END_LOCALE"
+    {
+      if [ "${SKIP_PROXY:-0}" != "1" ]; then
+        echo "$MARK_PROXY"
+        echo "export http_proxy=\"http://$PROXY_HOST:$PROXY_PORT\""
+        echo "export https_proxy=\"http://$PROXY_HOST:$PROXY_PORT\""
+        echo "export all_proxy=\"socks5://$PROXY_HOST:$PROXY_PORT\""
+        echo "export no_proxy=\"localhost,127.0.0.1,::1\""
+        echo "$END_PROXY"
+      fi
+      echo "$MARK_LOCALE"
+      echo "export LANG=\"${locale}.UTF-8\""
+      echo "export LC_ALL=\"${locale}.UTF-8\""
+      echo "export LC_CTYPE=\"${locale}.UTF-8\""
+      echo "export LANGUAGE=\"${locale}:${locale}\""
+      echo "$END_LOCALE"
+    } >> "$rc"
+  done
+
+  # .bash_profile -> source .bashrc (login bash shells don't read .bashrc by default)
+  if [ ! -f "$BASH_PROFILE" ]; then
+    echo '[ -f ~/.bashrc ] && source ~/.bashrc' > "$BASH_PROFILE"
+    ok "已创建 $BASH_PROFILE (source .bashrc for login bash)"
+  fi
+
   if [ "${SKIP_PROXY:-0}" != "1" ]; then
-    ok "已写入终端代理/locale 到 $SHELL_RC（请 source 使其生效）"
+    ok "已写入终端代理/locale 到 .zshrc + .bashrc (请 source 使其生效)"
   else
-    ok "已写入终端 locale 到 $SHELL_RC（SKIP_PROXY=1，未写代理块；请 source 使其生效）"
+    ok "已写入终端 locale 到 .zshrc + .bashrc (SKIP_PROXY=1, 未写代理块; 请 source 使其生效)"
   fi
 
   # 6) 刷新 DNS
@@ -145,15 +208,16 @@ apply(){
   echo
   wn "仍需手动处理："
   echo "  • Safari/Firefox/Chrome 的 WebRTC 防护（见文档 4.1，代理模式尤其关键）"
+  echo "  • 重启浏览器使 Accept-Language 语言变更生效（Chrome 需完全退出后重开）"
   echo "  • 关闭 iCloud 私有中继（系统设置 → Apple ID → iCloud → 私有中继）"
-  echo "  • 终端生效：source $SHELL_RC"
+  echo "  • 终端生效: source ~/.zshrc (zsh/Ghostty) / source ~/.bashrc (bash)"
 }
 
 # ---------- verify ----------
 verify(){
   local region="${1:-us}"
-  local tz_exp="${TZ_MAP[$region]:-America/New_York}"
-  local loc_exp="${LOCALE_MAP[$region]:-en_US}"
+  local tz_exp="$(get_tz "$region")"
+  local loc_exp="$(get_locale "$region")"
   info "===== macOS 隐私检测 (区域=$region) ====="
   local fail=0
 
@@ -162,6 +226,18 @@ verify(){
 
   local loc; loc=$(defaults read NSGlobalDomain AppleLocale 2>/dev/null)
   if [ "$loc" = "$loc_exp" ]; then ok "区域: $loc"; else wn "区域: $loc (期望 $loc_exp)"; fi
+
+  # Chrome Accept-Language 检查（Chrome 有独立 per-profile 语言，覆盖系统设置）
+  local chrome_prefs="$HOME/Library/Application Support/Google/Chrome/Default/Preferences"
+  local lang_exp="$(get_accept_lang "$region")"
+  if [ -f "$chrome_prefs" ]; then
+    local chrome_lang; chrome_lang=$(python3 -c "
+import json; d=json.load(open('$chrome_prefs')); print(d.get('intl',{}).get('accept_languages','NOT SET'))
+" 2>/dev/null)
+    if [ "$chrome_lang" = "$lang_exp" ]; then ok "Chrome Accept-Language: $chrome_lang"; else wn "Chrome Accept-Language: $chrome_lang (期望 $lang_exp)"; fail=1; fi
+  else
+    wn "Chrome 未安装：浏览器语言检测跳过"
+  fi
 
   # IPv6 检查所有活跃接口（apply 时全部关闭，故逐接口核对）
   local v6_leak=0
@@ -202,6 +278,12 @@ check(){
   echo "[时区]   $(sudo systemsetup -gettimezone 2>/dev/null | sed 's/Time Zone: //')"
   echo "[时间]   $(date)"
   echo "[区域]   $(defaults read NSGlobalDomain AppleLocale 2>/dev/null)"
+  echo "[Chrome] $(python3 -c "
+import json,os
+p=os.path.expanduser('~/Library/Application Support/Google/Chrome/Default/Preferences')
+try: print(json.load(open(p)).get('intl',{}).get('accept_languages','NOT SET'))
+except: print('Chrome 未安装')
+" 2>/dev/null)"
   echo "[Locale] $(locale 2>/dev/null | grep LANG)"
   echo "[DNS]    $(scutil --dns 2>/dev/null | grep -m1 nameserver)"
   echo "[系统代理] $(networksetup -getwebproxy "$INTERFACE" 2>/dev/null | awk -F': ' '/Server/{s=$2}/Port/{p=$2}END{print s":"p}')"
@@ -234,9 +316,15 @@ restore(){
   defaults write NSGlobalDomain AppleLocale -string "zh_CN"
   ok "区域 / 语言 → zh_CN"
 
-  clear_block "$MARK_PROXY" "$END_PROXY"
-  clear_block "$MARK_LOCALE" "$END_LOCALE"
-  ok "已移除 $SHELL_RC 代理/locale 块"
+  # 恢复 Chrome 浏览器语言
+  local updated; updated=$(set_browser_languages "zh-Hans-CN,zh,en-US,en")
+  ok "浏览器 Accept-Language → zh-Hans-CN,zh,en-US,en (Chrome: $updated)"
+
+  for rc in "${SHELL_RCS[@]}"; do
+    clear_block "$rc" "$MARK_PROXY" "$END_PROXY"
+    clear_block "$rc" "$MARK_LOCALE" "$END_LOCALE"
+  done
+  ok "已移除 .zshrc + .bashrc 代理/locale 块"
 
   sudo dscacheutil -flushcache
   sudo killall -HUP mDNSResponder 2>/dev/null || true
@@ -253,7 +341,7 @@ case "${1:-}" in
   restore) restore ;;
   *)
     echo "用法: sudo $0 {apply|verify|check|restore} [region]"
-    echo "  apply [us|jp|uk|sg|cn]   应用时区/区域/代理/IPv6（默认 us）"
+    echo "  apply [us|jp|uk|sg|cn]   应用时区/区域/代理/IPv6/浏览器语言（默认 us）"
     echo "  verify                   验证关键项（无需 sudo）"
     echo "  check                    打印当前环境状态（无需 sudo）"
     echo "  restore                  恢复默认（需 sudo）"

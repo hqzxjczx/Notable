@@ -66,6 +66,37 @@ Notable/
 - **Windows / WSL2**：SakuraCat 走 **TUN 模式**，由隧道封装 DNS，无需 WARP；参考 `windows-host-privacy-setup.md` 与 `wsl2-*.md`。
 - **一致性规则与跨平台对照**详见 `privacy-overview.md`。
 
+## 🔍 代理与隐私检测网址
+
+用于验证代理出口 IP、DNS 泄漏、链式代理是否生效等。
+
+### IP 出口检测
+
+| 网址 | 说明 |
+|------|------|
+| https://ip.sb | 显示当前出口 IP 和归属地 |
+| https://ipinfo.io | 详细 IP 信息（城市、ASN、运营商）|
+| https://www.iplocation.net | 对比多个数据库的 IP 归属 |
+| https://browserleaks.com/ip | 更详细的 IP 指纹信息 |
+
+### DNS 泄漏检测
+
+| 网址 | 说明 |
+|------|------|
+| https://www.dnsleaktest.com | 测试 DNS 是否泄漏到入口节点 |
+| https://ipleak.net | 综合检测 IP + DNS + WebRTC 泄漏 |
+
+### 链式代理专项验证
+
+| 网址 | 说明 |
+|------|------|
+| https://browserleaks.com/webrtc | 检查 WebRTC 是否暴露真实 IP（链式代理后如有泄漏会暴露入口 IP）|
+| https://www.astrill.com/leak-test | 综合泄漏测试 |
+
+> **链式代理最直观的验证方式**：在 Clash Verge → 连接（Connections）面板中查看发起请求时的 **chains** 列，若显示两跳（入口 → 出口），说明 dialer-proxy 已生效。
+
+---
+
 ## 🔗 参考资源
 
 - [Cua-Bench](https://cua.ai/cuabench) - 桌面软件基准测试

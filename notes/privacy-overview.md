@@ -28,13 +28,14 @@
 
 ## 二、四端一致性规则（必须遵守）
 
-无论哪端，以下三项统一，否则指纹会被识破：
+无论哪端，以下四项统一，否则指纹会被识破：
 
 1. **时区**：`America/New_York`（IANA）= Windows `Eastern Standard Time` = iOS `New York`
 2. **DNS**：`1.1.1.1`（macOS 经 WARP 加密；Windows/WSL2/iOS 经隧道封装）
 3. **区域/语言**：`en_US` / `en_US.UTF-8` / iOS `United States` + `English (US)`
+4. **浏览器 Accept-Language**：`en-US,en` — Chrome 有独立的 per-profile 语言设置，改系统语言不够，必须同时改 Chrome 的 `Preferences`（`macos-privacy.sh apply` 已自动处理）
 
-> 判读口诀：出口 IP 是美国，时区也得是美国，区域也得是美国 —— 三者一致才不露馅。
+> 判读口诀：出口 IP 是美国，时区也得是美国，语言也得是英文 —— 三者一致才不露馅。
 
 ---
 
@@ -62,7 +63,7 @@
 |---|---|---|---|
 | 1 | macOS 文档原写 TUN/utun，实际是代理 7897 + WARP | ? 高 | ? 已重写 `macos-host-privacy-setup.md` |
 | 2 | Safari WebRTC 旧建议「禁用 mDNS」会暴露真实 IP | ? 高 | ? 已改为保留 mDNS / 关 WebRTC |
-| 3 | Apple Container 段写「TUN 不需要代理」对 macOS 错误 | ? 高 | ? 已改为必须 `host.container.internal:7897` |
+| 3 | Apple Container 段写「TUN 不需要代理」对 macOS 错误 | 高 | 已改为必须 `192.168.64.1:7897`（`host.container.internal` 被 TUN dns-hijack 解析成 fake-ip，不可用） |
 | 4 | macOS 旧版关掉网络时间导致时钟漂移 | ? 中 | ? 改为保留网络时间、只关自动时区 |
 | 5 | 缺 IPv6 / iCloud 私有中继 / 防火墙 / 终端代理 处理 | ? 中 | ? macOS 文档已补 |
 | 6 | 文末 `opencode` 残留 artifact | ? 低 | ? 已清理 |
@@ -74,10 +75,12 @@
 
 - **Safari mDNS**：mDNS `.local` 是 Safari 隐藏真实 IP 的机制，**不要禁用**（macOS / iOS 同此）。
 - **代理 vs TUN**：TUN 自动抓全流量（含 UDP/命令行）；代理只抓配置了代理的 App，**终端必须手设 `http_proxy`**。
+- **三层防火墙**：TUN 接管流量出口 + macOS ALF 拦入站 + LuLu 管出站 App 联网（见 macOS 文档 4.5）。
 - **WARP 模式**：macOS 上 WARP 必须是 **DNS-only**，不是全隧道。
 - **iCloud 私有中继**：会和 WARP / VPN 抢 DNS，macOS / iOS 必须关。
-- **容器 127.0.0.1 陷阱**：容器内 `127.0.0.1` ≠ 宿主机，macOS 用 `host.container.internal`，Windows Docker 用 `host.docker.internal`。
+- **容器 127.0.0.1 陷阱**：容器内 `127.0.0.1` ≠ 宿主机。Apple Container 用网关 IP `192.168.64.1`（不用 `host.container.internal`，因 TUN dns-hijack 会把它解析成 fake-ip）；Windows Docker 用 `host.docker.internal`。
 - **验证别用 ipinfo.io**（429 限流），统一用 `https://1.1.1.1/cdn-cgi/trace`。
+- **Chrome Accept-Language 陷阱**：Chrome 有独立的 per-profile `intl.accept_languages`，**改了系统 `AppleLanguages` Chrome 仍发 `zh-CN` 头**。`macos-privacy.sh apply` 已自动修改 Chrome `Preferences`，但需**完全退出 Chrome 后重开**才生效。
 
 ---
 

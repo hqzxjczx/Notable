@@ -226,6 +226,45 @@ curl -s https://1.1.1.1/cdn-cgi/trace | grep -E 'ip=|loc='
 
 > 可把这些写入 `~/.zshrc`（macOS 默认 shell 为 zsh）。仅 SakuraCat 代理运行时生效。
 
+### 4.6 浏览器 Accept-Language 指纹（推荐做）
+
+> **问题**：浏览器在每个 HTTP 请求头中携带 `Accept-Language`，如果值为 `zh-CN,zh,en`，即使 IP 在美国、时区是 `America/New_York`，网站仍能判定你是中文用户 — 三者不一致即露馅。
+
+| 浏览器 | Accept-Language 来源 | 系统改了够不够 |
+|---|---|---|
+| **Safari** | 跟随系统 `AppleLanguages` | ✅ 够（`macos-privacy.sh apply` 已设）|
+| **Chrome** | **独立的 per-profile `intl.accept_languages`** | ❌ 不够 — Chrome 会覆盖系统语言 |
+| **Firefox** | `about:config` → `intl.accept_languages` | ❌ 不够 — 需手动设 |
+
+#### Chrome 修复（脚本已自动处理）
+
+`macos-privacy.sh apply` 会自动修改 Chrome 的 `Local State` 和所有 Profile 的 `Preferences` JSON：
+
+```bash
+# apply us 时自动执行（等价命令）:
+python3 -c "
+import json, os, glob
+cd = os.path.expanduser('~/Library/Application Support/Google/Chrome')
+for p in [os.path.join(cd,'Local State')] + sorted(glob.glob(os.path.join(cd,'Default*/Preferences'))):
+    d = json.load(open(p)); d.setdefault('intl',{})
+    d['intl']['accept_languages'] = 'en-US,en'
+    d['intl']['selected_languages'] = 'en-US,en'
+    json.dump(d, open(p,'w'), indent=2)
+"
+```
+
+> **注意**：Chrome 运行时修改 Preferences 可能被覆盖。**必须完全退出 Chrome 后重新打开**才生效。
+
+#### Firefox 修复（手动）
+
+地址栏输入 `about:config` → 搜索 `intl.accept_languages` → 设为 `en-US,en`。
+
+#### 验证
+
+访问 https://browserleaks.com/ip → 查看 HTTP Headers 中 `Accept-Language` 是否为 `en-US,en;q=0.9`（无 `zh` 字样）。
+
+---
+
 ### 4.2 关闭定位服务（风险：影响查找/地图/天气）
 
 ```bash
@@ -246,12 +285,79 @@ curl -s https://1.1.1.1/cdn-cgi/trace | grep -E 'ip=|loc='
 # 系统设置 → 隐私与安全性 → Apple 广告 → 关闭「个性化广告」
 ```
 
-### 4.5 出向防火墙（推荐，文档未强制）
+### 4.5 出向防火墙 LuLu（推荐）
 
-> 代理模式不像 TUN 那样强制接管全部流量。建议加一层出向过滤：
-> - 系统自带 **PF**（需写规则，较硬核）；或
-> - 图形化 **Little Snitch / Lulu**（推荐，可视化管控每个 App 的连接）。
-> 作用：防止个别 App 绕过 SakuraCat 代理直连真实网络。
+> macOS 自带防火墙（ALF）只防**入站**连接（别人连你），不管你的 App 往外发什么。
+> **LuLu** 是 Objective-See 开源的**出向**防火墙，监控每个 App 的出站连接，弹窗让你决定放行还是拦截。
+> 配合 TUN + 系统防火墙形成三层防护：TUN 接管流量出口，ALF 拦外部攻击，LuLu 管 App 联网行为。
+
+#### macOS 自带防火墙 vs LuLu
+
+| | 系统 ALF | LuLu |
+|---|---|---|
+| 方向 | **入站**（阻止外部连入） | **出站**（监控/拦截 App 联网） |
+| 粒度 | 按服务/端口 | 按 App × 目标 IP/端口 |
+| 交互 | 无弹窗 | 新连接弹窗询问 |
+| 资源占用 | 系统内置 | ~15 MB 磁盘，< 20 MB RAM |
+| 开源 | 否 | 是（Objective-See） |
+
+#### 安装
+
+**方式一：Homebrew（推荐）**
+
+```bash
+brew install --cask lulu
+```
+
+> 如果 Homebrew API 报错（`undefined method 'to_sym'`），先 `brew update` 再试，或用方式二。
+
+**方式二：直接下载 DMG**
+
+```bash
+# 下载最新版（约 7 MB）
+curl -L -o /tmp/LuLu.dmg "https://github.com/objective-see/LuLu/releases/latest/download/LuLu.dmg"
+# 挂载、复制、卸载
+hdiutil attach /tmp/LuLu.dmg -nobrowse
+cp -R "/Volumes/LuLu"*/LuLu.app /Applications/
+hdiutil detach "/Volumes/LuLu"*
+rm /tmp/LuLu.dmg
+```
+
+> 当前已安装版本：v4.3.2，位于 `/Applications/LuLu.app`。
+
+#### 首次运行设置
+
+1. 打开 `/Applications/LuLu.app`
+2. 系统提示「无法验证开发者」→ 系统设置 → 隐私与安全性 → 点击「仍要打开」
+3. 系统扩展授权弹窗 → 系统设置 → 隐私与安全性 → 允许 LuLu 的系统扩展
+4. LuLu 启动后进入规则界面
+
+#### 规则策略（隐私优先）
+
+| 进程 | 策略 | 说明 |
+|------|------|------|
+| Clash Verge / verge-mihomo | ✅ 允许 | 代理核心，必须联网 |
+| Chrome / Safari / Firefox | ✅ 允许 | 浏览器 |
+| warp-cli / Cloudflare WARP | ✅ 允许 | DNS 加密 |
+| curl / git / ssh / node | ✅ 允许 | 开发工具 |
+| locationd | ❌ 阻止 | 定位服务上报 |
+| cloudd / iCloud 服务 | ⚠️ 按需 | 如已关 iCloud 私有中继可阻止 |
+| 未知进程 / 可疑后台 | ❌ 阻止 | 首次弹窗先拦，确认安全后再放行 |
+
+> 头几天弹窗会比较频繁（每个新 App 首次联网都弹），习惯后基本只有新 App 才弹。
+> 已放行/阻止的规则保存在 LuLu 规则列表中，可在主界面修改。
+
+#### 验证
+
+```bash
+# 确认 LuLu 安装
+ls /Applications/LuLu.app && echo "已安装"
+
+# 确认 LuLu 运行
+pgrep -x LuLu && echo "运行中" || echo "未运行"
+```
+
+> LuLu 是可选增强项，不装也不影响代理+TUN+DNS 的核心防护。装了等于多一层「哪个 App 能联网」的知情权和控制权。
 
 ---
 
@@ -334,33 +440,39 @@ networksetup -setv6automatic Wi-Fi
 
 ---
 
-## 第七部分：Apple Container 容器隐私（?? 已修正代理段）
+## 第七部分：Apple Container 容器隐私（实测通过 2026-07-25）
 
 > **适用**: Apple `container` CLI（WWDC 2025 发布，在 macOS 26+ 完整支持，macOS 15 功能受限）
 > 在 macOS 上用轻量级 VM 原生运行 Linux 容器。每个容器跑在独立微型 VM 中。
 
-### 7.1 核心机制速览（macOS 代理模式下的真相）
+### 7.1 核心机制速览（实测修正：TUN + 代理模式下的真相）
 
 | 机制 | 说明 |
 |------|------|
-| 网络 | 容器接宿主机 vmnet 虚拟网络 |
+| 网络 | 容器接宿主机 vmnet 虚拟网络，网关 `192.168.64.1`（宿主机） |
 | DNS | `container run` 支持 `--dns` / `--dns-search` / `--no-dns` |
 | 环境变量 | `-e KEY=value`、`--env-file <file>`（注入 `TZ` / `LANG` / 代理）|
 | 全局配置 | `~/.config/container/config.toml` |
 | 时区 | 宿主机 macOS 时区**不会**自动传入容器，需 `-e TZ=...`（镜像需含 tzdata）|
-| **出口** | ?? **macOS 是 SakuraCat 代理模式（非 TUN）**：容器流量**不会**自动走 VPN，必须显式注入代理变量 |
+| **出口** | **必须显式注入代理变量指向 `192.168.64.1:7897`**（见下方说明）|
 
-> ? **旧版文档写「TUN 模式默认不需要代理」是错的（那是 Windows/WSL2 的情形）**。macOS 是代理模式，容器必须配代理。
+> **实测发现（2026-07-25）**：
+> 1. **TUN `dns-hijack` 会劫持容器 DNS**：容器查询 `host.container.internal` → TUN 返回 fake-ip（198.18.x.x）→ 无法连接宿主机代理。
+>    → **改用网关 IP `192.168.64.1`**（Apple Container 固定子网，无需 DNS 解析）。
+> 2. **TUN 不路由容器 VM 的 TCP 流量**：DNS 劫持有效（返回 fake-ip），但 TCP 连接到 fake-ip 失败（连接被重置）。
+>    → 容器**必须**走代理变量（`http_proxy=http://192.168.64.1:7897`），不能依赖 TUN 兜底。
+> 3. **`allow-lan` 必须开启**：容器 VM 在 `192.168.64.x` 网段，Clash 默认 `allow-lan: false` 只允许 `127.0.0.1`。
+>    → 需在 Clash Verge 设置 `allow-lan: true`（GUI: 设置 → 系统设置 → 允许局域网连接）。
 
 ### 7.2 DNS 隐私（容器内）
 
 ```bash
 container run --rm \
-  --dns 1.1.1.1 --dns 8.8.8.8 \
-  alpine/curl curl -s https://1.1.1.1/cdn-cgi/trace
+  --dns 1.1.1.1 \
+  alpine sh -c 'nslookup google.com; wget -q -O- https://1.1.1.1/cdn-cgi/trace'
 ```
 
-> 容器内 DNS 不会自动走 WARP，故显式 `--dns 1.1.1.1` 最直接。
+> 容器内 DNS 不会自动走 WARP/TUN 加密，故显式 `--dns 1.1.1.1`（TUN `dns-hijack` 会接管，返回 fake-ip）。
 
 ### 7.3 时区 + 语言隐私
 
@@ -369,41 +481,44 @@ container run --rm \
   -e TZ=America/New_York \
   -e LANG=en_US.UTF-8 \
   -e LC_ALL=en_US.UTF-8 \
-  --dns 1.1.1.1 --dns 8.8.8.8 \
-  ubuntu:latest date
+  --dns 1.1.1.1 \
+  alpine sh -c 'apk add --no-cache tzdata >/dev/null 2>&1; date'
 ```
 
-> ?? `TZ` 生效需镜像内含 **tzdata** 包。Debian/Ubuntu：`apt-get install -y tzdata`；Alpine：`apk add --no-cache tzdata`。
+> `TZ` 生效需镜像内含 **tzdata** 包。Alpine: `apk add --no-cache tzdata`；Debian/Ubuntu: `apt-get install -y tzdata`。
 
-### 7.4 代理配置（macOS 代理模式**必须**配）
+### 7.4 代理配置（必须：allow-lan + 网关 IP）
 
-> **关键陷阱（两处）**：
-> 1. 容器里的 `127.0.0.1` 是容器本身，**不是 macOS 宿主机**。指向宿主机服务须用 `host.container.internal`。
-> 2. macOS 是 SakuraCat **代理模式**，容器出口**必须**走 `host.container.internal:7897`，否则直接断网（不像 TUN 那样自动接管）。
+> **关键陷阱（三处）**：
+> 1. 容器里的 `127.0.0.1` 是容器本身，**不是 macOS 宿主机**。
+> 2. **不能用 `host.container.internal`**：TUN `dns-hijack` 会把它解析成 fake-ip（198.18.x.x），容器连不上。
+>    → 改用**网关 IP `192.168.64.1`**（Apple Container 固定子网 `192.168.64.0/24`，无需 DNS）。
+> 3. **必须开 `allow-lan: true`**：Clash 默认只监听 `127.0.0.1`，容器 VM 在 `192.168.64.x` 网段访问不了。
+>    → Clash Verge GUI: 设置 → 系统设置 → 允许局域网连接（或编辑 `clash-verge.yaml` 改 `allow-lan: true`）。
 
 ```bash
 container run --rm \
-  -e http_proxy=http://host.container.internal:7897 \
-  -e https_proxy=http://host.container.internal:7897 \
-  -e all_proxy=socks5://host.container.internal:7897 \
+  -e http_proxy=http://192.168.64.1:7897 \
+  -e https_proxy=http://192.168.64.1:7897 \
+  -e all_proxy=socks5://192.168.64.1:7897 \
   alpine/curl curl -s https://1.1.1.1/cdn-cgi/trace
 ```
-
-> 若 `host.container.internal` 未解析，用 `sudo container system dns create host.container.internal --localhost <宿主机vmnet IP>` 配置。
 
 ### 7.5 可复用的 privacy.env 模板 + 完整示例
 
 创建 `~/.config/container/privacy.env`：
 
 ```bash
+mkdir -p ~/.config/container
+
 cat > ~/.config/container/privacy.env << 'EOF'
 TZ=America/New_York
 LANG=en_US.UTF-8
 LC_ALL=en_US.UTF-8
-# macOS 代理模式必填（Windows/WSL2 的 TUN 模式则留空）
-http_proxy=http://host.container.internal:7897
-https_proxy=http://host.container.internal:7897
-all_proxy=socks5://host.container.internal:7897
+http_proxy=http://192.168.64.1:7897
+https_proxy=http://192.168.64.1:7897
+all_proxy=socks5://192.168.64.1:7897
+no_proxy=localhost,127.0.0.1,::1
 EOF
 ```
 
@@ -412,8 +527,8 @@ EOF
 ```bash
 container run --rm \
   --env-file ~/.config/container/privacy.env \
-  --dns 1.1.1.1 --dns 8.8.8.8 \
-  ubuntu:latest bash -c 'apt-get update -qq && apt-get install -y -qq tzdata curl >/dev/null 2>&1; date; curl -s https://1.1.1.1/cdn-cgi/trace | grep -E "ip=|loc="'
+  --dns 1.1.1.1 \
+  alpine sh -c 'apk add --no-cache curl tzdata >/dev/null 2>&1; date; curl -s https://1.1.1.1/cdn-cgi/trace | grep -E "ip=|loc="'
 ```
 
 ### 7.6 验证
@@ -421,45 +536,48 @@ container run --rm \
 ```bash
 container run --rm \
   --env-file ~/.config/container/privacy.env \
-  --dns 1.1.1.1 --dns 8.8.8.8 \
-  alpine/curl sh -c 'apk add --no-cache tzdata >/dev/null 2>&1; echo "时区: $(TZ=America/New_York date)"; echo "LANG=$LANG"; echo "----- 出口 IP -----"; curl -s https://1.1.1.1/cdn-cgi/trace | grep -E "ip=|loc="'
+  --dns 1.1.1.1 \
+  alpine sh -c 'apk add --no-cache curl tzdata >/dev/null 2>&1; echo "时区: $(date)"; echo "LANG=$LANG"; echo "----- 出口 IP -----"; curl -s https://1.1.1.1/cdn-cgi/trace | grep -E "ip=|loc=|colo="'
 ```
 
 **判读标准**：
-- ? `date` 显示美东时间（EDT/EST）
-- ? `LANG=en_US.UTF-8`
-- ? `loc=US`，`ip=` 为节点 IP → 容器经 `host.container.internal:7897` 走 SakuraCat 代理
+- `date` 显示美东时间（EDT/EST，如 `Sat Jul 25 03:38:57 EDT 2026`）
+- `LANG=en_US.UTF-8`
+- `loc=US`，`ip=` 为节点 IP，`colo=` 为 Cloudflare 节点 → 容器经 `192.168.64.1:7897` 走 SakuraCat 代理
 
 ### 7.7 清理 / 恢复
 
 ```bash
-sudo container system dns delete host.container.internal 2>/dev/null || true
-container system dns list
 rm -f ~/.config/container/privacy.env
-container system stop
+container system stop 2>/dev/null || true
+# 可选：恢复 Clash allow-lan=false（GUI 或编辑 clash-verge.yaml）
 ```
 
 ### 7.8 故障排查
 
 ```bash
-# 容器无法解析域名 (Could not resolve host) → 显式指定公网 DNS 通常可绕过
-container run -it --rm --dns 1.1.1.1 alpine/curl curl -v https://google.com
+# 容器无法解析域名 → 显式指定公网 DNS（TUN dns-hijack 会接管，返回 fake-ip）
+container run -it --rm --dns 1.1.1.1 alpine sh -c 'nslookup google.com; wget -q -O- https://1.1.1.1/cdn-cgi/trace'
 
-# 容器出口连不上（超时）→ 检查代理变量与 host.container.internal 解析
-container run --rm alpine/curl sh -c 'env | grep -i proxy; getent hosts host.container.internal'
+# 容器出口连不上（超时/Connection reset）→ 检查代理变量 + allow-lan
+container run --rm alpine sh -c 'env | grep -i proxy; ip route show default'
+# 确认 http_proxy=192.168.64.1:7897 且网关=192.168.64.1
+# 确认 Clash Verge allow-lan=true
 
 # 宿主机侧确认代理可达
-curl -s https://1.1.1.1/cdn-cgi/trace | grep -E 'ip=|loc='
+curl -s -x http://127.0.0.1:7897 https://1.1.1.1/cdn-cgi/trace | grep -E 'ip=|loc='
 ```
 
 ### 7.9 注意事项
 
-1. **127.0.0.1 陷阱**：容器内 `127.0.0.1` ≠ macOS 宿主机，指向宿主机须用 `host.container.internal`。
-2. **代理模式必配代理**：macOS 非 TUN，容器必须注入 `host.container.internal:7897`。
-3. **时区需 tzdata**：轻量镜像无 tzdata 时 `TZ` 不生效，回落 UTC。
-4. **WARP 不覆盖容器 DNS**：容器内显式 `--dns 1.1.1.1`。
-5. **macOS 15 受限**：`container network` 命令、多网络等需 macOS 26+。
-6. **DNS 一致性**：容器 DNS 与宿主机保持一致（1.1.1.1 / 8.8.8.8）。
+1. **127.0.0.1 陷阱**：容器内 `127.0.0.1` ≠ macOS 宿主机，用网关 IP `192.168.64.1`。
+2. **不用 `host.container.internal`**：TUN `dns-hijack` 把它解析成 fake-ip（198.18.x.x），容器连不上。改用 `192.168.64.1`。
+3. **`allow-lan` 必须开**：Clash 默认 `allow-lan: false`，容器 VM 在 `192.168.64.x` 网段无法访问 `127.0.0.1:7897`。
+4. **TUN 不路由容器 TCP**：TUN 的 `dns-hijack` 对容器 DNS 有效（返回 fake-ip），但容器的 TCP 流量不走 TUN。必须用代理变量。
+5. **时区需 tzdata**：轻量镜像无 tzdata 时 `TZ` 不生效，回落 UTC。Alpine: `apk add tzdata`。
+6. **WARP 不覆盖容器 DNS**：容器内显式 `--dns 1.1.1.1`。
+7. **macOS 15 受限**：`container network` 命令、多网络等需 macOS 26+。
+8. **网关 IP 稳定性**：Apple Container 固定使用 `192.168.64.0/24` 子网，网关恒为 `192.168.64.1`。
 
 ---
 

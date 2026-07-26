@@ -33,7 +33,7 @@
 1. **时区**：`America/New_York`（IANA）= Windows `Eastern Standard Time` = iOS `New York`
 2. **DNS**：`1.1.1.1`（macOS 经 WARP 加密；Windows/WSL2/iOS 经隧道封装）
 3. **区域/语言**：`en_US` / `en_US.UTF-8` / iOS `United States` + `English (US)`
-4. **浏览器 Accept-Language**：`en-US,en` — Chrome 有独立的 per-profile 语言设置，改系统语言不够，必须同时改 Chrome 的 `Preferences`（`macos-privacy.sh apply` 已自动处理）
+4. **浏览器 Accept-Language**：`en-US,en` — Chrome/Edge 有独立的 per-profile `intl.accept_languages`，改系统语言不够，必须同时改 Chromium 的 `Preferences` JSON（macOS `macos-privacy.sh apply` 已自动处理；Windows 用 `windows-host-privacy-setup.md` 4.2 节的 PowerShell+Python 脚本；Firefox 用 `user.js`）
 
 > 判读口诀：出口 IP 是美国，时区也得是美国，语言也得是英文 —— 三者一致才不露馅。
 
@@ -44,13 +44,15 @@
 | 文档 | 平台 | 说明 |
 |---|---|---|
 | `macos-host-privacy-setup.md` | macOS（实测） | 代理 7897 + WARP；含 Safari/Firefox/Chrome WebRTC、Apple Container |
-| `macos-privacy.sh` | macOS | 一键 apply / verify / restore 脚本 |
-| `windows-host-privacy-setup.md` | Windows 10/11 | SakuraCat TUN + 7897 混合端口；时区/DNS/区域 + WebRTC |
+| `macos-privacy.sh` | macOS | 一键 apply / verify / check / restore 脚本（含 Chrome Accept-Language 自动处理）|
+| `windows-host-privacy-setup.md` | Windows 10/11 | SakuraCat TUN + 7897 混合端口；时区/DNS/区域 + WebRTC + **浏览器 Accept-Language（4.2 节）** |
 | `ios-privacy-setup.md` | iOS / iPadOS | SakuraCat iOS 全隧道（或代理 + Cloudflare 1.1.1.1）；时区/区域/WebRTC |
 | `wsl2-ubuntu24-privacy-setup.md` | WSL2 Ubuntu-24.04 | 隔离环境；TUN 继承；DNS 锁定；无代理变量 |
+| `wsl2-ubuntu22-privacy-setup.md` | WSL2 Ubuntu-22.04 | 默认实例；与 24.04 一致配置（保留 systemd）|
+| `wsl2-privacy.sh` | WSL2（22.04/24.04 通用）| 一键 apply / verify / check / restore 脚本（自动检测 systemd 与否）|
 | `wsl2-privacy-isolation-guide.md` | WSL2 | 隔离思路补充 |
 | `wsl2-setup-plan.md` | WSL2 | 部署计划 |
-| `wsl2-sakuracat-privacy-setup.md` | WSL2 | SakuraCat 专项 |
+| `wsl2-sakuracat-privacy-setup.md` | WSL2 | SakuraCat 专项（旧版，含 7897 代理变量，TUN 模式下应注释）|
 | `windows-host-privacy-setup` 相关 PDF | Windows/WSL2 进入 | `Windows WSL2 进入方法.pdf` |
 | `前置代理.md` | 通用 | v2rayN TUN + 链式代理（前置机场 → 静态住宅 IP）原理 |
 | `cat.md` / `computer-use-accuracy-report.md` | — | 待确认用途 |
@@ -80,7 +82,7 @@
 - **iCloud 私有中继**：会和 WARP / VPN 抢 DNS，macOS / iOS 必须关。
 - **容器 127.0.0.1 陷阱**：容器内 `127.0.0.1` ≠ 宿主机。Apple Container 用网关 IP `192.168.64.1`（不用 `host.container.internal`，因 TUN dns-hijack 会把它解析成 fake-ip）；Windows Docker 用 `host.docker.internal`。
 - **验证别用 ipinfo.io**（429 限流），统一用 `https://1.1.1.1/cdn-cgi/trace`。
-- **Chrome Accept-Language 陷阱**：Chrome 有独立的 per-profile `intl.accept_languages`，**改了系统 `AppleLanguages` Chrome 仍发 `zh-CN` 头**。`macos-privacy.sh apply` 已自动修改 Chrome `Preferences`，但需**完全退出 Chrome 后重开**才生效。
+- **Chrome Accept-Language 陷阱**：Chrome/Edge 有独立的 per-profile `intl.accept_languages`，**改了系统 `AppleLanguages`（macOS）或 `WinUserLanguageList`（Windows）Chrome 仍发 `zh-CN` 头**。macOS `macos-privacy.sh apply` 已自动修改 Chrome `Preferences`；Windows 用 `windows-host-privacy-setup.md` 4.2 节脚本。两种系统都需**完全退出 Chrome 后重开**才生效。Firefox 用 `user.js` 持久化 `intl.accept_languages`。
 
 ---
 
@@ -114,4 +116,4 @@
 
 ---
 
-**文档结束** _最后更新: 2026-07-22_
+**文档结束** _最后更新: 2026-07-26（新增 wsl2-ubuntu22-privacy-setup.md + wsl2-privacy.sh；Windows 补 Accept-Language 章节；四端浏览器语言统一）_

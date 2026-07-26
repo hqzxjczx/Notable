@@ -122,9 +122,16 @@ netsh dns add encryption server=8.8.8.8 dohtemplate=https://dns.google/dns-query
 Set-Culture en-US
 Set-WinSystemLocale en-US
 Set-WinHomeLocation -GeoId 244   # 244 = United States
+
+# 语言列表：en-US 设为主语言（隐私/显示），同时保留 zh-Hans-CN 的中文输入法
+# ⚠️ 切勿用 Set-WinUserLanguageList en-US -Force —— 会清空 InputMethodTips，导致中文输入法丢失
+$list = New-WinUserLanguageList en-US
+$list.Add("zh-Hans-CN")   # 自动附带微软拼音 IME（0804:{81D4E9C9-...}）
+Set-WinUserLanguageList $list -Force
 ```
 
 > 更改后需**注销或重启**才完全生效。仅为强化一致性，非必需。
+> 隐私说明：浏览器 `Accept-Language` 由 Chrome/Edge 的 `Preferences`（见 4.2 节）控制，**不**受 Windows 语言列表影响——所以保留 zh-Hans-CN 输入法不会泄漏中文用户身份。
 
 ---
 
@@ -274,7 +281,98 @@ WebRTC 会绕过 VPN 暴露真实内网/公网 IP。**这不是系统设置，�
 > 4. 访问 browserleaks.com/webrtc 专项验证
 > 5. 若有泄露，检查配置是否生效（可能需要清缓存 + 重启浏览器）
 
-### 4.2 关闭部分 Windows 遥测（风险：影响诊断/反馈）
+### 4.2 浏览器 Accept-Language 指纹（推荐做）
+
+> **问题**：浏览器在每个 HTTP 请求头里携带 `Accept-Language`。即使 IP 在美国、时区是 `America/New_York`、SystemLocale 是 `en-US`，如果 `Accept-Language` 仍是 `zh-CN,zh,en`，网站仍能判定你是中文用户 —— 三者不一致即露馅。
+>
+> Windows 与 macOS 一样：**改系统语言不够**，Chrome/Edge 有独立的 per-profile `intl.accept_languages`，会覆盖系统语言；Firefox 也有自己的 `intl.accept_languages`。
+
+#### 浏览器对比
+
+| 浏览器 | Accept-Language 来源 | 系统改了够不够 |
+|---|---|---|
+| **Chrome / Edge** | **独立的 per-profile `intl.accept_languages`**（`Preferences` JSON）| ❌ 不够 —— Chromium 会覆盖系统语言 |
+| **Firefox** | `about:config` → `intl.accept_languages`（或 `user.js`）| ❌ 不够 —— 需手动设 |
+| IE / 系统 WebView2 | 跟随 Windows UserLanguage | ✅ 够（但 IE 已弃用）|
+
+> 路径速查：
+> - Chrome：`%LOCALAPPDATA%\Google\Chrome\User Data\` 下 `Local State` + `Default/Preferences` + `Profile */Preferences`
+> - Edge：`%LOCALAPPDATA%\Microsoft\Edge\User Data\` 同结构
+> - Firefox：`%APPDATA%\Mozilla\Firefox\Profiles\*.default*\prefs.js`（运行时写）+ `user.js`（持久覆盖）
+
+#### Chrome / Edge 修改（PowerShell + Python 一键脚本）
+
+> ⚠️ **必须先完全退出 Chrome / Edge**（任务管理器确认无残留进程），否则浏览器退出时会覆盖 `Preferences`。Edge 的 `msedgewebview2` 进程是其他 App 的 WebView，不算 Edge 浏览器本身，无需关闭。
+
+将以下保存为 `set-browser-lang.ps1` 或直接在 PowerShell 里粘贴运行（需有 Python 3）：
+
+```powershell
+# 修改 Chrome + Edge 所有 Profile 的 Accept-Language 为 en-US,en
+$acceptLang = "en-US,en"
+$browsers = @(
+    @{ Name="Chrome"; Base="$env:LOCALAPPDATA\Google\Chrome\User Data" },
+    @{ Name="Edge";   Base="$env:LOCALAPPDATA\Microsoft\Edge\User Data" }
+)
+
+$pyScript = @"
+import json, os, glob, shutil, sys
+accept_lang = sys.argv[1]
+bases = sys.argv[2:]
+def set_lang(path, label):
+    if not os.path.exists(path):
+        print(label + ': not found'); return
+    bak = path + '.bak.privacy'
+    if not os.path.exists(bak): shutil.copy2(path, bak)
+    with open(path, 'r', encoding='utf-8') as f: d = json.load(f)
+    d.setdefault('intl', {})
+    d['intl']['accept_languages'] = accept_lang
+    d['intl']['selected_languages'] = accept_lang
+    with open(path, 'w', encoding='utf-8') as f: json.dump(d, f, indent=2, ensure_ascii=False)
+    print(label + ': OK')
+for base in bases:
+    set_lang(os.path.join(base, 'Local State'), base + '/Local State')
+    for p in sorted(glob.glob(os.path.join(base, 'Default/Preferences')) + glob.glob(os.path.join(base, 'Profile */Preferences'))):
+        set_lang(p, base + '/' + os.path.basename(os.path.dirname(p)))
+"@
+
+& python -c $pyScript $acceptLang ($browsers | ForEach-Object { $_.Base })
+```
+
+> 也可在浏览器 GUI 里改：`chrome://settings/languages`（`edge://settings/languages`）→ 把 English (United States) 移到第一位 → 勾选「Display Google Chrome in this language」。但 GUI 改动只影响当前 Profile，多 Profile 需逐个改；上面的脚本一次覆盖所有 Profile。
+
+#### Firefox 修改（user.js 持久化）
+
+Firefox 的 `prefs.js` 是运行时写的，直接改会被覆盖。正确做法是在 Profile 目录建 `user.js`：
+
+```powershell
+$ffProfiles = "$env:APPDATA\Mozilla\Firefox\Profiles"
+Get-ChildItem $ffProfiles -Directory | ForEach-Object {
+    $userJs = Join-Path $_.FullName "user.js"
+    @"
+// === PRIVACY-HARDENING (managed by Notable privacy docs) ===
+user_pref("intl.accept_languages", "en-US,en");
+user_pref("intl.locale.requested", "en-US");
+user_pref("general.useragent.locale", "en-US");
+"@ | Set-Content $userJs -Encoding UTF8
+    Write-Output "Wrote $userJs"
+}
+```
+
+> 也可在 `about:config` 里搜 `intl.accept_languages` 直接改，但 `user.js` 跨重启持久。
+
+#### 验证
+
+访问 https://browserleaks.com/ip → 查看 HTTP Headers 里的 `Accept-Language`，应为 `en-US,en;q=0.9`（无 `zh` 字样）。
+
+| 检测项 | 期望值 |
+|---|---|
+| `Accept-Language` 头 | `en-US,en;q=0.9` |
+| `browserleaks.com/ip` 的 Languages | English (United States) 优先 |
+| Chrome `chrome://settings/languages` | English 顶部，勾选显示语言 |
+
+> 与 macOS `macos-privacy.sh apply` 的 `set_browser_languages()` 函数等价；macOS 端已自动处理 Chrome Preferences，Windows 端用上面的脚本达到同样效果。
+
+### 4.3 关闭部分 Windows 遥测（风险：影响诊断/反馈）
 
 ```powershell
 # 【风险项，默认不执行】将遥测级别降到最低（企业版才支持 0，专业版最低为 1）
@@ -287,7 +385,7 @@ WebRTC 会绕过 VPN 暴露真实内网/公网 IP。**这不是系统设置，�
 
 > 恢复：`Set-Service -Name DiagTrack -StartupType Automatic; Start-Service DiagTrack`
 
-### 4.3 关闭广告 ID / 位置服务（风险：影响定位类应用）
+### 4.4 关闭广告 ID / 位置服务（风险：影响定位类应用）
 
 ```powershell
 # 【风险项，默认不执行】禁用广告 ID
@@ -309,15 +407,26 @@ Write-Output "自动时区服务(Start=4为禁用):"
 (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\tzautoupdate").Start
 Write-Output "DNS 配置:"
 Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object { $_.ServerAddresses } | Select-Object InterfaceAlias, ServerAddresses
+Write-Output "SystemLocale / UserCulture / HomeLocation:"
+Get-WinSystemLocale | Select-Object Name
+Get-Culture | Select-Object Name
+Get-WinHomeLocation | Select-Object GeoId  # 244=US, 45=CN
+Write-Output "TUN 网卡:"; Get-NetAdapter | Where-Object { $_.Name -eq "Meta" } | Select-Object Name, Status
 Write-Output "----- 出口 IP / 地理位置（不限流接口）-----"
 Invoke-RestMethod -Uri "https://1.1.1.1/cdn-cgi/trace" | Select-String -Pattern "ip=|loc=|colo="
+Write-Output "----- Chrome/Edge Accept-Language -----"
+python -c "import json,os,glob;[print(p.split(os.sep)[-2]+':',json.load(open(p)).get('intl',{}).get('accept_languages','NOT SET')) for b in [os.path.expandvars(r'%LOCALAPPDATA%\\Google\\Chrome\\User Data'),os.path.expandvars(r'%LOCALAPPDATA%\\Microsoft\\Edge\\User Data')] for p in [os.path.join(b,'Local State')]+sorted(glob.glob(os.path.join(b,'Default','Preferences'))+glob.glob(os.path.join(b,'Profile *','Preferences')))]"
 ```
 
 **判读标准**：
 - ✅ 时区为 `Eastern Standard Time`
 - ✅ 自动时区服务 `Start = 4`（已禁用）
 - ✅ Wi-Fi DNS 为 `1.1.1.1` / `8.8.8.8`（Meta 接口 198.18.0.2 属正常）
+- ✅ SystemLocale = `en-US`，UserCulture = `en-US`，HomeLocation GeoId = `244`
+- ✅ TUN 网卡 `Meta` 状态为 `Up`（TUN 模式生效）
 - ✅ `loc=US`，`ip=` 为节点 IP → VPN 生效且与时区一致
+- ✅ Chrome/Edge 所有 Profile 的 `intl.accept_languages` = `en-US,en`
+- ✅ browserleaks.com/ip 显示 `Accept-Language: en-US,en;q=0.9`（无 `zh`）
 
 > ⚠️ 不要用 `ipinfo.io` 验证，其免费接口会返回 `429 Rate limit`，请统一用 `1.1.1.1/cdn-cgi/trace`。
 
@@ -335,6 +444,22 @@ Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\tzautoupdate" -N
 # 恢复 DNS 为自动获取（DHCP）
 Set-DnsClientServerAddress -InterfaceAlias "Wi-Fi" -ResetServerAddresses
 Clear-DnsClientCache
+
+# 恢复区域 / Culture / HomeLocation 为中国
+Set-Culture zh-CN
+Set-WinSystemLocale zh-CN
+Set-WinHomeLocation -GeoId 45  # 45 = China
+Set-WinUserLanguageList zh-CN-Hans,en -Force
+
+# 恢复 Chrome/Edge Accept-Language（从 .bak.privacy 还原）
+Get-ChildItem "$env:LOCALAPPDATA\Google\Chrome\User Data","$env:LOCALAPPDATA\Microsoft\Edge\User Data" -Recurse -Filter "*.bak.privacy" | ForEach-Object {
+    Copy-Item $_.FullName ($_.FullName -replace '\.bak\.privacy$','') -Force
+}
+
+# 恢复 Firefox：删除 user.js
+Get-ChildItem "$env:APPDATA\Mozilla\Firefox\Profiles" -Directory | ForEach-Object {
+    Remove-Item (Join-Path $_.FullName "user.js") -ErrorAction SilentlyContinue
+}
 
 # 移除 DoH 加密模板（若之前添加）
 netsh dns delete encryption server=1.1.1.1
@@ -422,5 +547,5 @@ docker run --rm `
 
 **文档结束**
 
-_最后更新: 2026-07-22（补充 Firefox WebRTC 详细配置 + 第七部分 7897 代理端口用法）_
+_最后更新: 2026-07-26（补充 4.2 浏览器 Accept-Language 章节 + 验证/恢复脚本同步 UserCulture/HomeLocation/浏览器语言）_
 _环境实测 + 方案定制: opencode_

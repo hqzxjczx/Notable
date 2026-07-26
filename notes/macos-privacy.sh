@@ -105,8 +105,8 @@ if os.path.exists(ls):
     d["intl"]["selected_languages"] = accept_lang
     json.dump(d, open(ls, "w"), indent=2, ensure_ascii=False)
     updated.append("Local State")
-# 所有 Profile 的 Preferences
-for p in sorted(glob.glob(os.path.join(chrome_dir, "Default*/Preferences"))):
+# 所有 Profile 的 Preferences（Default + Profile 1/2/...）
+for p in sorted(glob.glob(os.path.join(chrome_dir, "Default/Preferences")) + glob.glob(os.path.join(chrome_dir, "Profile */Preferences"))):
     d = json.load(open(p))
     d.setdefault("intl", {})["accept_languages"] = accept_lang
     d["intl"]["selected_languages"] = accept_lang

@@ -1,5 +1,5 @@
 // Clash Verge Rev 扩展脚本
-// 功能：将 NVIDIA NIM / OpenAI Codex / Anthropic Claude Code / Google 相关 API
+// 功能：将 NVIDIA NIM / OpenAI Codex / Anthropic Claude Code / Google / Granola AI Notepad 相关 API
 //      统一代理至 "🇺🇸|美国" 代理组
 //
 // 使用方法：
@@ -58,6 +58,27 @@ const ROUTING_RULES = [
   "DOMAIN-SUFFIX,googlevideo.com",
   "DOMAIN-SUFFIX,gstatic.com",
   "DOMAIN-KEYWORD,google",
+
+  // ===== Granola AI Notepad =====
+  // Granola 自有域 (含 public-api.granola.ai / api.granola.ai / docs.granola.ai / trust.granola.ai)
+  "DOMAIN-SUFFIX,granola.ai",
+  "DOMAIN-SUFFIX,granola.so",                    // 公司备用域 (privacy@granola.so / go.granola.so 跳转)
+  "DOMAIN-KEYWORD,granola",                      // 兜底捕获未来新增子域
+
+  // --- Granola AI / 转录子处理器 (核心功能依赖) ---
+  "DOMAIN-SUFFIX,x.ai",                          // xAI Grok 模型
+  "DOMAIN-SUFFIX,assemblyai.com",                // 转录
+  "DOMAIN-SUFFIX,deepgram.com",                  // 转录
+  "DOMAIN-SUFFIX,fireworks.ai",                  // 模型推理
+  "DOMAIN-SUFFIX,braintrust.dev",                // AI 评估测试
+  "DOMAIN-SUFFIX,parallel.ai",                   // Web 搜索增强
+
+  // --- Granola 基础设施 / 遥测 / 通知 ---
+  "DOMAIN-SUFFIX,turbopuffer.com",               // 向量搜索 / 嵌入存储
+  "DOMAIN-SUFFIX,clickhouse.com",                // 事件 / 遥测数据存储
+  "DOMAIN-SUFFIX,knock.app",                     // 通知编排 (邮件 / 推送)
+  "DOMAIN-SUFFIX,plain.com",                     // 客服平台 (UK)
+  "DOMAIN-SUFFIX,twilio.com",                    // in-product 电话功能
 ];
 
 // 确保目标代理组存在；不存在则按节点名筛选美国节点自动创建

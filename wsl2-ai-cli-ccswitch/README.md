@@ -49,7 +49,7 @@ WSL2 CLI ──http──▶ 192.168.144.1:15721 (cc-switch proxy, 持真实 Dee
 
 ## 四、技能粒度决策
 
-采用 **3 个技能 + 1 个参考文档**,覆盖完整链条:装 CLI → 接 cc-switch → 切 Clash 脚本。
+采用 **3 个技能 + 1 个参考文档 + 1 个自动化脚本**,覆盖完整链条:装 CLI → 接 cc-switch → 切 Clash 脚本。
 
 | 文件 | 类型 | 作用 | 入参 |
 |---|---|---|---|
@@ -57,6 +57,7 @@ WSL2 CLI ──http──▶ 192.168.144.1:15721 (cc-switch proxy, 持真实 Dee
 | `SKILL-2-ccswitch-domestic-wiring.md` | 技能 | 把 WSL2 的 CLI 接到宿主 cc-switch proxy | `--target codex\|claude\|both` |
 | `SKILL-3-clash-verge-script-switch.md` | 技能 | 切换 Clash Verge Rev 订阅的拓展脚本(跨平台) | `--script <name>`(支持自定义脚本) |
 | `REF-powershell-wsl-escaping.md` | 参考 | PowerShell↔WSL2 转义陷阱 + 文件中转法 | — |
+| `scripts/sync-codex-config.ps1` | 脚本 | 同步宿主 cc-switch Codex 配置到 WSL2 | `-Test`(可选冒烟测) |
 
 **为什么不拆成更多个**:装 codex 和装 claude 共享 Node/fnm,一条 npm 命令装完,拆不开;配 codex 和配 claude 共享 80% 步骤(验证 proxy、探路由、冒烟测、验证 REJECT),拆了会重复。
 

@@ -151,20 +151,41 @@ env_key = "OPENAI_API_KEY"
 
 > **cc-switch 更新 provider 后需重新同步:** 用户在 cc-switch GUI 里改了 Codex provider(切模型/切上游),宿主 `~/.codex/config.toml` 会更新,WSL2 不会自动跟。重新跑一次上面的 `Copy-Item` 即可。
 
-#### target=claude —— env 变量
+#### target=claude —— env 变量 + 预检禁用
 
-Claude Code 没有 catalog 机制,用 env 变量。`~/.bashrc` 追加:
+Claude Code 没有 catalog 机制,用 env 变量。但交互式 `claude` 启动时会**硬编码**请求 `https://api.anthropic.com/api/hello` 做连通性预检,跟 `ANTHROPIC_BASE_URL` 无关 —— Clash REJECT 这个域名时预检失败,claude 报 "Unable to connect to Anthropic services" 退出。`claude -p` 不做预检所以不受影响。
+
+**需要两步:**
+
+**1. `~/.bashrc` 追加 env 变量(含预检禁用):**
 
 ```bash
 # ===== CLAUDE via cc-switch (DeepSeek) =====
 export ANTHROPIC_BASE_URL="http://192.168.144.1:<port>"
 export ANTHROPIC_API_KEY="sk-cc-switch-dummy"
 export ANTHROPIC_MODEL="claude-haiku-4-5"
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 # ===== END CLAUDE via cc-switch =====
 ```
 
-> `ANTHROPIC_BASE_URL` **不带 `/v1`**(Claude Code 自动拼 `/v1/messages`)。
->
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` —— **关键!** 禁用预检流量,否则交互式 claude 会连 api.anthropic.com 被拒
+- `ANTHROPIC_BASE_URL` **不带 `/v1`**(Claude Code 自动拼 `/v1/messages`)
+
+**2. 创建 `~/.claude/.config.json`(key 指纹 approved):**
+
+```bash
+mkdir -p ~/.claude
+cat > ~/.claude/.config.json <<'EOF'
+{
+  "customApiKeyResponses": {
+    "approved": ["sk-cc-switch-dummy"]
+  }
+}
+EOF
+```
+
+approved 值是 key 的最后 20 个字符(`echo -n "$ANTHROPIC_API_KEY" | tail -c 20`)。`sk-cc-switch-dummy` 只有 18 字符,所以填整个 key。这是"鸡生蛋"问题 —— claude 需要 approved key 才跳过预检,但预检失败时没法通过正常流程 approve,只能手动建文件。
+
 > **模型映射关键:** cc-switch proxy 只认 `claude-*` 模型名做映射:
 > - `claude-haiku-4-5` → `deepseek-v4-flash`(快/省)
 > - `claude-sonnet-5` / `claude-opus-5` → `deepseek-v4-pro`(强)
@@ -223,6 +244,8 @@ curl -sS -m 8 -o /dev/null -w 'http=%{http_code}\n' https://registry.npmjs.org  
 
 `exit=35 SSL_ERROR_SYSCALL` + 几十毫秒 = Clash REJECT 的指纹(连接被接受后在 TLS 握手阶段切断)。
 
+> **详细的 device_id/标识符分析与捕获方法见 [REF-claude-code-privacy-analysis.md](REF-claude-code-privacy-analysis.md)。**
+
 ## 切换 provider / 模型
 
 | 想做什么 | 怎么做 |
@@ -230,7 +253,7 @@ curl -sS -m 8 -o /dev/null -w 'http=%{http_code}\n' https://registry.npmjs.org  
 | 切到别家国产模型 | cc-switch GUI 切 Claude/Codex 的 provider(`currentProviderClaude`/`currentProviderCodex` 会更新),proxy 自动转发到新上游。**Codex 注意:** 宿主 `~/.codex/config.toml` 会更新,需重新同步到 WSL2(见步骤 4) |
 | claude 用 flash ↔ pro | 改 `.bashrc` 的 `ANTHROPIC_MODEL`:`claude-haiku-4-5`(flash)↔ `claude-sonnet-5`(pro) |
 | 绕过 cc-switch 直连 DeepSeek | `.bashrc` 改 `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic` + 真实 DeepSeek key(放 WSL2) |
-| 回官方 Anthropic | 删三个 `ANTHROPIC_*` env + **去掉 Clash 里 `api.anthropic.com` 的 REJECT 规则** + `claude` 登录官方账号 |
+| 回官方 Anthropic | 删四个 env(`ANTHROPIC_BASE_URL`/`API_KEY`/`MODEL`/`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`)+ 删 `~/.claude/.config.json` + **去掉 Clash 里 `api.anthropic.com` 的 REJECT 规则** + `claude` 登录官方账号 |
 
 ## 常见错误
 
@@ -244,3 +267,4 @@ curl -sS -m 8 -o /dev/null -w 'http=%{http_code}\n' https://registry.npmjs.org  
 | codex 工具调用卡住/异常 | 同上 —— fallback metadata 的 tool 支持标志不对 | 同上,同步 catalog 后 metadata 提供正确的 `supports_parallel_tool_calls` 等字段 |
 | cc-switch GUI 切了 provider 但 WSL2 codex 没生效 | 宿主 config.toml 更新了,WSL2 没同步 | 重新跑 `sync-codex-config.ps1` |
 | **交互式 `codex` 要求登录** | config.toml 含 `requires_openai_auth = true`(从宿主原样拷来的) | 去掉该行,改用 `env_key = "OPENAI_API_KEY"`(见步骤 4 补丁说明);或跑 `sync-codex-config.ps1`(自动打补丁) |
+| **交互式 `claude` 报 "Unable to connect to Anthropic services / ERR_SOCKET_CLOSED"** | 交互式 claude 启动时硬编码预检 `api.anthropic.com/api/hello`,被 Clash REJECT。`claude -p` 不做预检所以不受影响 | 加 `export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` 到 `.bashrc` + 创建 `~/.claude/.config.json` 写入 approved key 指纹(见步骤 4 target=claude) |

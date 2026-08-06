@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code 知识地图 — 深度研究摘要</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:          #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6;
+    --series-2:       #eb6834;
+    --series-3:       #1baf7a;
+    --series-4:       #eda100;
+    --series-1-ink:   #fff;
+    --series-2-ink:   #fff;
+    --series-3-ink:   #0b0b0b;
+    --series-4-ink:   #0b0b0b;
+    --hover-rise:     4px;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted:          #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --series-2:       #d95926;
+      --series-3:       #199e70;
+      --series-4:       #c98500;
+      --series-1-ink:   #fff;
+      --series-2-ink:   #fff;
+      --series-3-ink:   #fff;
+      --series-4-ink:   #0b0b0b;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted:          #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --series-2:       #d95926;
+    --series-3:       #199e70;
+    --series-4:       #c98500;
+    --series-1-ink:   #fff;
+    --series-2-ink:   #fff;
+    --series-3-ink:   #fff;
+    --series-4-ink:   #0b0b0b;
+  }
+
+  body { margin: 0; background: var(--page-plane); color: var(--text-primary); }
+  .viz-root { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+
+  /* Header */
+  .hero-figure { font-size: clamp(32px, 5vw, 52px); font-weight: 600; letter-spacing: -0.02em; margin: 0 0 4px; }
+  .subtitle { color: var(--text-secondary); font-size: 15px; margin: 0 0 6px; line-height: 1.5; }
+  .meta { color: var(--muted); font-size: 12.5px; margin: 0 0 24px; }
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+  .theme-toggle {
+    background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--baseline);
+    border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .theme-toggle:hover { border-color: var(--text-secondary); }
+
+  /* Legend — always present (≥2 series) */
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; padding: 0 0 20px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+
+  /* Pillar groups */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .pillar { border: 1px solid var(--border); background: var(--surface-1); border-radius: 10px; padding: 0 0 14px; overflow: hidden; }
+  .pillar-head { padding: 12px 16px; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .pillar-head .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .pillar-head .count { font-weight: 400; font-size: 12px; opacity: 0.8; margin-left: auto; }
+  .pillar-cards { display: flex; flex-direction: column; gap: 8px; padding: 0 12px; }
+
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; cursor: default; position: relative;
+    border-left: 3px solid var(--card-accent);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  }
+  .card-name { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .card-name code { font-size: 12px; background: var(--page-plane); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
+  .card-desc { font-size: 12.5px; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.45; }
+
+  /* Tooltip (hover layer) */
+  .card { --tip: none; }
+  .card[data-tip]::after {
+    content: attr(data-tip); position: absolute; left: 0; right: 0; bottom: calc(100% + 6px);
+    background: var(--text-primary); color: var(--surface-1); font-size: 12px; line-height: 1.4;
+    border-radius: 6px; padding: 8px 10px; z-index: 10; display: var(--tip);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  }
+  .card[data-tip]:hover::after { display: block; }
+  .card[data-tip]:focus-within::after { display: block; }
+
+  /* Table view — the accessible data channel */
+  .table-block { margin-top: 40px; }
+  .table-block h2 { font-size: 16px; font-weight: 600; margin: 0 0 12px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  caption { text-align: left; font-size: 12.5px; color: var(--muted); padding: 0 0 10px; }
+  th { text-align: left; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--baseline); font-variant-numeric: tabular-nums; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--gridline); color: var(--text-secondary); vertical-align: top; }
+  td:first-child { color: var(--text-primary); font-weight: 600; }
+  td .tag { display: inline-block; font-size: 11px; border-radius: 4px; padding: 1px 6px; margin-right: 6px; font-weight: 600; }
+  tr:hover td { background: var(--page-plane); }
+
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="viz-root" id="root">
+
+  <h1 class="hero-figure">Claude Code 知识地图</h1>
+  <p class="subtitle">四种持久化机制 × 自动化与配置体系 × 代理工作流 × 效率与质量——一张图掌握 Claude Code 深度研究要点（2026-08）。</p>
+  <p class="meta">基于官方文档与社区实践的深度研究摘要 · 悬停卡片可查看要点 · 底部为可访问表格视图</p>
+
+  <div class="toolbar">
+    <div class="legend" id="legend" aria-label="图例">
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--series-1)"></span>记忆与上下文</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--series-2)"></span>自动化与配置</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--series-3)"></span>代理与工作流</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--series-4)"></span>效率与质量</div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button">切换暗色模式</button>
+  </div>
+
+  <div class="grid">
+
+    <!-- Pillar 1: Memory & Context -->
+    <section class="pillar" aria-label="记忆与上下文">
+      <div class="pillar-head"><span class="dot" style="background:var(--series-1)"></span>记忆与上下文<span class="count">6 项</span></div>
+      <div class="pillar-cards">
+        <div class="card" style="--card-accent:var(--series-1)" data-tip="每次会话自动加载的常驻上下文。写入：构建/测试命令、架构、反直觉的坑、代码中无法推导的决策理由。准则：短而稳定。">
+          <div class="card-name">CLAUDE.md</div>
+          <div class="card-desc">项目宪法，常驻上下文，每次会话自动加载。写稳定事实与约定。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-1)" data-tip="Claude 在工作中发现的过程性事实（测试耗时、生产 URL），跨会话留存，不入库。">
+          <div class="card-name">memory 工具</div>
+          <div class="card-desc">Claude 的跨会话便签，由 Claude 自己维护，存放过程性发现。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-1)" data-tip="plan 模式下 Claude 只读不写，产出方案经 ExitPlanMode 审批后才动手。适合多文件大改、重构、高风险变更。">
+          <div class="card-name">plan 模式</div>
+          <div class="card-desc">动手前的批准提案：先探索、提方案，批准后才写文件。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-1)" data-tip="会话内的执行状态追踪，把大任务拆解、并行化、跟踪进度。不是长期记忆。">
+          <div class="card-name">tasks</div>
+          <div class="card-desc">会话内执行清单，用于拆解任务与跟踪进度。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-1)" data-tip="用 @相对路径 引用其他文件（如 @docs/conventions.md），把大文件拆开按需引入，避免根 CLAUDE.md 过长。会话内 @ 引用文件、# 引用记忆。">
+          <div class="card-name"><code>@</code>imports</div>
+          <div class="card-desc">@路径按需加载外部文件，控制常驻上下文体积。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-1)" data-tip="./CLAUDE.md（项目根）→ docs/CLAUDE.md（目录子树）→ ~/.claude/CLAUDE.md（用户全局）→ CLAUDE.local.md（个人 gitignore）。目录级文件在读取该目录时自动加载。">
+          <div class="card-name">位置体系</div>
+          <div class="card-desc">全局 / 项目 / 目录子树三级记忆文件，作用域递进。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pillar 2: Automation & Config -->
+    <section class="pillar" aria-label="自动化与配置">
+      <div class="pillar-head"><span class="dot" style="background:var(--series-2)"></span>自动化与配置<span class="count">6 项</span></div>
+      <div class="pillar-cards">
+        <div class="card" style="--card-accent:var(--series-2)" data-tip="由执行器触发，不由 Claude 触发。事件如 PreToolUse（拦截/注入审批）、PostToolUse（自动格式化/测试）、UserPromptSubmit、Stop。『每次 X 之后自动 Y』必须用 hook。">
+          <div class="card-name">Hooks</div>
+          <div class="card-desc">事件驱动自动化，配置在 settings.json。固定行为必须用它，不能指望记忆。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-2)" data-tip=".claude/commands/*.md，文件名即命令名（/review）。用户显式运行。适合重复性手动触发的流程。">
+          <div class="card-name">Slash Commands</div>
+          <div class="card-desc">用户显式触发的提示词，适合重复性手动工作流。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-2)" data-tip=".claude/skills/<name>/SKILL.md，按 description 匹配自动触发。带脚本/资源文件。适合『会这个能力』（如数据可视化），而非执行一次。">
+          <div class="card-name">Skills</div>
+          <div class="card-desc">按需自动触发的能力包，Claude 根据描述决定何时加载。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-2)" data-tip="claude mcp add/list/remove/serve，暴露工具命名 mcp__<server>__<tool>，会话内 /mcp 管理。接入外部系统能力。">
+          <div class="card-name">MCP</div>
+          <div class="card-desc">外部能力接入层，工具命名 mcp__server__tool。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-2)" data-tip="permissions.allow/deny/ask，规则格式 工具名(参数模式)，deny 优先。四种权限模式：default / acceptEdits / plan / bypassPermissions，Shift+Tab 循环。">
+          <div class="card-name">权限体系</div>
+          <div class="card-desc">allow / deny / ask 规则 + 四种权限模式（Shift+Tab 切换）。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-2)" data-tip="层级从低到高：enterprise policy → 用户 ~/.claude/settings.json → 项目 .claude/settings.json → 本地 settings.local.json（gitignore）。后者覆盖前者。">
+          <div class="card-name">settings 层级</div>
+          <div class="card-desc">策略 → 用户 → 项目 → 本地，逐级覆盖。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pillar 3: Agents & Workflows -->
+    <section class="pillar" aria-label="代理与工作流">
+      <div class="pillar-head"><span class="dot" style="background:var(--series-3)"></span>代理与工作流<span class="count">5 项</span></div>
+      <div class="pillar-cards">
+        <div class="card" style="--card-accent:var(--series-3)" data-tip="独立上下文运行、只回报结果。自定义类型写 .claude/agents/<name>.md（frontmatter：name/description/tools/model）。用于并行独立研究、隔离大读取。">
+          <div class="card-name">Subagents</div>
+          <div class="card-desc">独立上下文并行执行，隔离主线程、只回报结果。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-3)" data-tip="让子代理异步运行，主代理继续其他工作，完成时收到通知（可配 Notification hook 通知外部）。">
+          <div class="card-name">后台任务</div>
+          <div class="card-desc">异步执行独立任务，完成时收到通知。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-3)" data-tip="多文件大改、重构、高风险变更的官方推荐姿势：先探索提方案，批准后才动手。">
+          <div class="card-name">Plan Mode</div>
+          <div class="card-desc">先想清楚再动手——只读探索 + 方案审批。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-3)" data-tip="git worktree 多个并行工作目录，适合隔离实验和并行子代理，互不干扰最后合并。settings.worktree 可配 symlink 与 sparse。">
+          <div class="card-name">Worktrees</div>
+          <div class="card-desc">同一仓库多工作目录并行，隔离实验与子代理。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-3)" data-tip="大任务先进 plan → 拆 build/test/review 循环 → 独立块并行化 → 任务清单追踪 → 每步跑测试看 diff，而非最后一次性验收。">
+          <div class="card-name">多步工作流</div>
+          <div class="card-desc">plan → 分阶段 → 并行化 → 增量验证。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pillar 4: Efficiency & Quality -->
+    <section class="pillar" aria-label="效率与质量">
+      <div class="pillar-head"><span class="dot" style="background:var(--series-4)"></span>效率与质量<span class="count">5 项</span></div>
+      <div class="pillar-cards">
+        <div class="card" style="--card-accent:var(--series-4)" data-tip="目标 + 约束 + 『不要做什么』+ 验收标准；给文件路径（@引用）而非让它猜；一次一件事；明确输出格式。迭代循环而非期待一次完美。">
+          <div class="card-name">提示词技巧</div>
+          <div class="card-desc">具体、给验收标准、给上下文而不是猜、小步迭代。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-4)" data-tip="/context 看占用、/cost 看成本、/compact 压缩、/clear 开新会话。CLAUDE.md 精简 + @imports，用子代理隔离大读取。不要把整文件粘进提示词。">
+          <div class="card-name">上下文管理</div>
+          <div class="card-desc">/compact /clear /context 控制占用；引用路径而非粘贴。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-4)" data-tip="TDD 风格：改动前写测试、改动后跑回归；/review 审新 PR、/code-review 审工作区 diff；PostToolUse hook 自动跑测试。">
+          <div class="card-name">测试与评审</div>
+          <div class="card-desc">TDD + /review + 自动回归 hook。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-4)" data-tip="默认成功后自动提交（--no-auto-commit 关闭）；提交信息遵循仓库风格；不 force、不改写历史。claude -c 继续 / -r 恢复 / -p 一次性。">
+          <div class="card-name">Git 纪律</div>
+          <div class="card-desc">自动提交默认开，不 rewrite 历史，提交风格随仓库。</div>
+        </div>
+        <div class="card" style="--card-accent:var(--series-4)" data-tip="Esc 停止、Shift+Tab 切权限模式、Ctrl+O 新会话、Ctrl+L 清屏、@ 引用文件、# 引用记忆、Ctrl+E 编辑器打开长提示词。">
+          <div class="card-name">快捷键</div>
+          <div class="card-desc">Shift+Tab 权限模式、@ 文件、# 记忆、Ctrl+O 新会话。</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Table view (accessible data channel) -->
+  <div class="table-block">
+    <h2>要点明细表</h2>
+    <div class="table-wrap">
+      <table>
+        <caption>Claude Code 四大支柱要点。颜色仅供识别，表格为独立的可读信息通道。</caption>
+        <thead>
+          <tr><th scope="col">支柱</th><th scope="col">概念</th><th scope="col">要点</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="tag" style="background:var(--series-1);color:var(--series-1-ink)">记忆</span>记忆与上下文</td><td>CLAUDE.md</td><td>常驻宪法：构建命令、架构、反直觉的坑；短而稳定，每行都占 token</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-1);color:var(--series-1-ink)">记忆</span>记忆与上下文</td><td>memory 工具</td><td>Claude 自维护的跨会话便签，过程性发现，不入库</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-1);color:var(--series-1-ink)">记忆</span>记忆与上下文</td><td>plan 模式</td><td>动手前的批准提案；只读探索 + ExitPlanMode 审批</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-1);color:var(--series-1-ink)">记忆</span>记忆与上下文</td><td>tasks</td><td>会话内执行清单，拆解任务、并行化、跟踪进度</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-1);color:var(--series-1-ink)">记忆</span>记忆与上下文</td><td>@imports / 位置体系</td><td>@路径按需加载；全局/项目/目录子树三级文件</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-2);color:var(--series-2-ink)">自动化</span>自动化与配置</td><td>Hooks</td><td>执行器触发的事件自动化（Pre/PostToolUse 等）；固定行为必须用 hook</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-2);color:var(--series-2-ink)">自动化</span>自动化与配置</td><td>Commands vs Skills</td><td>Command=用户显式运行；Skill=按需自动触发的能力包</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-2);color:var(--series-2-ink)">自动化</span>自动化与配置</td><td>MCP</td><td>外部能力接入，工具命名 mcp__server__tool，/mcp 管理</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-2);color:var(--series-2-ink)">自动化</span>自动化与配置</td><td>权限体系</td><td>allow/deny/ask + default/acceptEdits/plan/bypassPermissions 四模式；deny 优先</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-2);color:var(--series-2-ink)">自动化</span>自动化与配置</td><td>settings 层级</td><td>policy → 用户 → 项目 → 本地，逐级覆盖</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-3);color:var(--series-3-ink)">代理</span>代理与工作流</td><td>Subagents</td><td>独立上下文并行、只回报结果；.claude/agents/*.md 自定义</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-3);color:var(--series-3-ink)">代理</span>代理与工作流</td><td>后台任务 / Worktrees</td><td>异步执行 + git worktree 并行目录隔离实验</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-3);color:var(--series-3-ink)">代理</span>代理与工作流</td><td>多步工作流</td><td>plan → build/test/review 循环 → 并行化 → 增量验证</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-4);color:var(--series-4-ink)">效率</span>效率与质量</td><td>提示词 / 上下文</td><td>目标+约束+验收标准；/compact /clear /context 控制占用</td></tr>
+          <tr><td><span class="tag" style="background:var(--series-4);color:var(--series-4-ink)">效率</span>效率与质量</td><td>测试 / Git / 快捷键</td><td>TDD + /review；不 rewrite 历史；Shift+Tab、@、#、Ctrl+O</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Dark-mode toggle — writes data-theme on the viz-root; media query covers OS default
+  (function () {
+    var root = document.getElementById('root');
+    var btn = document.getElementById('themeToggle');
+    btn.addEventListener('click', function () {
+      var cur = root.getAttribute('data-theme');
+      var next = cur === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      btn.textContent = next === 'dark' ? '切换亮色模式' : '切换暗色模式';
+    });
+  })();
+</script>
+</body>
+</html>

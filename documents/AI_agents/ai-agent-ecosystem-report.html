@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agent 生态深度研究报告 — Hermes / OpenClaw / OpenHuman / holaOS</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --page-plane: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --muted: #898781;
+    --gridline: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+    --s1-ink:#fff; --s2-ink:#fff; --s3-ink:#0b0b0b; --s4-ink:#0b0b0b; --s5-ink:#0b0b0b; --s6-ink:#fff; --s7-ink:#fff; --s8-ink:#fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      --surface-1: #1a1a19; --page-plane: #0d0d0d; --text-primary: #fff; --text-secondary: #c3c2b7;
+      --gridline: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+      --s3-ink:#fff; --s4-ink:#0b0b0b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --surface-1: #1a1a19; --page-plane: #0d0d0d; --text-primary: #fff; --text-secondary: #c3c2b7;
+    --gridline: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+    --s3-ink:#fff; --s4-ink:#0b0b0b;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--page-plane); color:var(--text-primary); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.6; }
+  .wrap { max-width:1080px; margin:0 auto; padding:32px 20px 72px; }
+  .hero { font-size:clamp(28px,4.5vw,44px); font-weight:600; letter-spacing:-0.02em; margin:0 0 6px; line-height:1.2; }
+  .sub { color:var(--text-secondary); font-size:15px; margin:0 0 4px; }
+  .meta { color:var(--muted); font-size:12.5px; margin:0 0 26px; }
+  .toolbar { display:flex; gap:12px; align-items:center; margin-bottom:26px; flex-wrap:wrap; }
+  .tbtn { background:var(--surface-1); color:var(--text-primary); border:1px solid var(--baseline); border-radius:6px; padding:6px 14px; font-size:13px; cursor:pointer; font-family:inherit; }
+  .tbtn:hover { border-color:var(--text-secondary); }
+  h2 { font-size:21px; font-weight:600; margin:44px 0 6px; letter-spacing:-0.01em; }
+  h3 { font-size:16px; font-weight:600; margin:26px 0 6px; }
+  p { margin:8px 0; }
+  code { background:var(--page-plane); border:1px solid var(--border); border-radius:4px; padding:0 5px; font-size:0.88em; }
+  .tag { display:inline-block; font-size:11px; font-weight:600; border-radius:4px; padding:1px 7px; margin-right:6px; color:var(--tag-ink,#fff); }
+  .mute { color:var(--muted); font-size:12.5px; }
+  .card { background:var(--surface-1); border:1px solid var(--border); border-radius:10px; padding:14px 18px; margin:12px 0; }
+  .conf { font-size:11.5px; color:var(--text-secondary); background:var(--page-plane); border:1px solid var(--border); border-radius:4px; padding:1px 6px; white-space:nowrap; }
+  ul { margin:6px 0 6px 20px; padding:0; }
+  li { margin:4px 0; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; margin:0 0 4px; font-size:13px; color:var(--text-secondary); }
+  .legend .sw { width:11px; height:11px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:-1px; }
+  /* Comparison table */
+  .twrap { overflow-x:auto; margin:14px 0; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  caption { text-align:left; font-size:12.5px; color:var(--muted); padding:0 0 10px; }
+  th { text-align:left; font-weight:600; padding:9px 12px; border-bottom:2px solid var(--baseline); background:var(--surface-1); }
+  td { padding:9px 12px; border-bottom:1px solid var(--gridline); vertical-align:top; color:var(--text-secondary); }
+  td:first-child { color:var(--text-primary); font-weight:600; white-space:nowrap; }
+  tr:hover td { background:var(--page-plane); }
+  .quote { border-left:3px solid var(--baseline); padding:2px 14px; margin:10px 0; color:var(--text-secondary); font-style:italic; }
+  .warn { background:var(--surface-1); border:1px solid var(--s4); border-left:4px solid var(--s4); border-radius:8px; padding:12px 16px; margin:14px 0; font-size:13.5px; }
+  .toc { background:var(--surface-1); border:1px solid var(--border); border-radius:10px; padding:14px 20px; margin:0 0 8px; }
+  .toc a { color:var(--s1); text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+  .toc ol { margin:4px 0 0 18px; }
+  details { margin:10px 0; border:1px solid var(--border); border-radius:8px; padding:0 14px; background:var(--surface-1); }
+  summary { cursor:pointer; font-weight:600; padding:10px 0; font-size:14.5px; }
+  .src { font-size:12px; color:var(--muted); word-break:break-all; }
+  .mem-table td:first-child { white-space:normal; }
+</style>
+</head>
+<body>
+<div class="wrap" id="root">
+
+  <h1 class="hero">AI Agent 生态深度研究报告</h1>
+  <p class="sub">Hermes Agent · OpenClaw · OpenHuman · holaOS — 最佳实践、架构深挖与对比框架</p>
+  <p class="meta">四轮 deep-research 合成 · 数据截至 2026-08-05 · 全部 claims 经 3 票对抗验证 · 405 个研究代理 · 每轮来源附于文末</p>
+
+  <div class="toolbar">
+    <button class="tbtn" id="toggle" type="button">切换暗色模式</button>
+  </div>
+
+  <div class="toc">
+    <b>目录</b>
+    <ol>
+      <li><a href="#summary">执行摘要</a></li>
+      <li><a href="#compare">四者对比总览</a></li>
+      <li><a href="#hermes">Hermes Agent — 最佳实践 + 记忆系统深挖</a></li>
+      <li><a href="#openclaw">OpenClaw — 对比基线</a></li>
+      <li><a href="#openhuman">OpenHuman — 架构深挖</a></li>
+      <li><a href="#holaos">holaOS — 架构与定位</a></li>
+      <li><a href="#positioning">生态定位与选型建议</a></li>
+      <li><a href="#verification">验证方法与边界</a></li>
+      <li><a href="#sources">来源清单</a></li>
+    </ol>
+  </div>
+
+  <h2 id="summary">一、执行摘要</h2>
+  <p>本报告综合四轮独立 deep-research，覆盖四个持续演进的开源 AI agent 项目。核心图景：它们处于<strong>不同的抽象层</strong>——Hermes 与 OpenClaw 是<strong>自包含 agent harness</strong>（带记忆、平台网关、自主执行），OpenHuman 是<strong>本地优先的多 agent 编排器</strong>（可指挥其他 harness），holaOS 则是<strong>工作区管理层</strong>（位于 Claude Code/Codex 等执行器之上）。三者并不直接同层竞争。</p>
+  <div class="legend">
+    <span><span class="sw" style="background:var(--s1)"></span>Hermes</span>
+    <span><span class="sw" style="background:var(--s2)"></span>OpenClaw</span>
+    <span><span class="sw" style="background:var(--s3)"></span>OpenHuman</span>
+    <span><span class="sw" style="background:var(--s4)"></span>holaOS</span>
+  </div>
+  <p><strong>Hermes Agent</strong>：Nous Research 出品的"自改进自主 agent"，最佳实践集中于四条——自动注入 AGENTS.md、稳定系统提示词保缓存、有界冻结快照记忆（MEMORY.md/USER.md）+ 可选 mem0、容器后端跑不可信代码。20+ 消息平台，官方《Migrate from OpenClaw》指南，是 OpenClaw 的直接替代目标。</p>
+  <p><strong>OpenClaw</strong>：作为对比基线，多平台个人 AI 助手，记忆/技能/编排体系成熟；Hermes 提供 <code>hermes claw migrate</code> 直接导入其配置。</p>
+  <p><strong>OpenHuman</strong>（GPL-3.0，~36k stars，早期 beta）：本地优先 agent 编排器，每个 agent 回合都跑在 tinyagents 2.1 图引擎上（检查点/暂停/恢复），Memory Tree 确定性桶密封管道存本地 SQLite + Obsidian vault，Signal 协议端到端加密的 A2A 编排，20 分钟自动抓取循环。注意：其"单循环"对 Hermes 的概括与 Hermes 自己的"内置学习循环"自述冲突。</p>
+  <p><strong>holaOS</strong>（Modified Apache 2.0，~5.5k stars）：本地优先 TypeScript/Electron 桌面应用，同一工作区并排跑 Claude Code / Codex / 自研 agent，共享文件系统 markdown 记忆与 MCP 工具。把自己定位在<strong>执行器之上</strong>的工作区层，竞争 agent SDK 而非执行器。⚠️ 它与前三者的<strong>直接对比 claims 未通过验证</strong>。</p>
+
+  <h2 id="compare">二、四者对比总览</h2>
+  <div class="twrap">
+    <table class="mem-table">
+      <caption>四项目关键维度对比。全部条目经 3 票对抗验证（OpenHuman/holaOS/Hermes 记忆自述除外，见验证章节）。</caption>
+      <thead><tr><th>维度</th><th>Hermes Agent</th><th>OpenClaw</th><th>OpenHuman</th><th>holaOS</th></tr></thead>
+      <tbody>
+        <tr><td>定位</td><td>自改进自主 agent（harness）</td><td>个人 AI 助手（harness）</td><td>本地优先多 agent 编排器</td><td>工作区管理层（执行器之上）</td></tr>
+        <tr><td>许可</td><td>MIT（OpenHuman 称）</td><td>MIT（OpenHuman 称）</td><td>GPL-3.0</td><td>Modified Apache 2.0（SPDX NOASSERTION，含商业/品牌条款）</td></tr>
+        <tr><td>消息平台</td><td>20+（CLI/Telegram/Discord/Slack/Signal/Matrix/飞书/企微/微信/QQ…）</td><td>多平台网关（Telegram/Discord/Slack/WhatsApp/Signal…）</td><td>—（作为 conductor 编排其他 harness）</td><td>平台应用：Gmail/LinkedIn/Reddit/GitHub/Google Sheets</td></tr>
+        <tr><td>记忆</td><td>内置冻结快照 MEMORY.md(2,200字符)/USER.md(1,375字符) + 8 个外置 provider（mem0 等，同时最多一个）</td><td>MEMORY.md/AGENTS.md/SOUL.md 配置体系</td><td>Memory Tree：确定性桶密封管道，SQLite + Obsidian vault 镜像</td><td>文件系统 markdown 单一共享记忆，跨 agent 跨会话</td></tr>
+        <tr><td>执行模型</td><td>agent loop + 学习循环（自述）</td><td>—</td><td>tinyagents 2.1 检查点状态机图（可暂停/恢复/断路器）</td><td>harness 抽象，支持 Claude Code/Codex/自研</td></tr>
+        <tr><td>编排</td><td>子代理 / sub-agent</td><td>子代理</td><td>Signal E2E A2A + map_reduce + plan→execute⇄review→finalize</td><td>Multi Workspaces / Sub Agents / Dashboards</td></tr>
+        <tr><td>迁移路径</td><td><code>hermes claw migrate</code> 导入 OpenClaw 配置</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr><td>凭据</td><td>Nous Portal 单订阅替代全部 per-vendor key</td><td>自管各平台凭据</td><td>x402 支付（vendor 声称，未审计）</td><td>BYOK（自带 key）</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="hermes">三、Hermes Agent</h2>
+
+  <h3>3.1 四条最佳实践（首轮研究，全部 3-0 高置信）</h3>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">BP1</span><strong>上下文文件自动注入</strong> <span class="conf">3-0</span></p>
+    <ul>
+      <li>会话启动自动注入 CWD 顶层 <code>AGENTS.md</code>；子目录文件<strong>惰性发现</strong>进工具结果（非系统提示词），避免缓存膨胀。</li>
+      <li>优先级：<code>.hermes.md &gt; AGENTS.md &gt; CLAUDE.md &gt; .cursorrules</code>（首个命中胜出）。</li>
+      <li>源码：<code>agent/subdirectory_hints.py</code>（向上查 5 层）、<code>agent/prompt_builder.py</code>。</li>
+    </ul>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">BP2</span><strong>提示词缓存经济学</strong> <span class="conf">3-0</span></p>
+    <ul>
+      <li>缓存按<strong>模型 + 账户</strong>键控；<code>/model</code> 切换、provider fallback、凭据轮换都会迫使下轮全价重读。</li>
+      <li>"偶尔切换没事；<strong>长会话里频繁切换成本成倍</strong>。"（tips.md 原文）</li>
+      <li>业界佐证：LangChain PR #33850、OpenClaw PR #53212（拆静态/动态块保缓存）。</li>
+    </ul>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">BP3</span><strong>有界冻结快照记忆</strong> <span class="conf">3-0</span></p>
+    <ul>
+      <li><code>MEMORY.md</code>（~2,200 字符）记录环境事实/约定/学到的经验；<code>USER.md</code>（~1,375 字符）记录用户画像。</li>
+      <li>会话开始冻结快照注入系统提示词；写入立即落盘但不改提示词，下个会话才可见。</li>
+      <li>外置 provider 同时最多一个，与内置<strong>叠加</strong>（mem0 三模式四工具）。</li>
+    </ul>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">BP4</span><strong>容器后端安全边界</strong> <span class="conf">3-0</span></p>
+    <ul>
+      <li>危险命令检查（递归删除/SQL drop/curl 管道 shell）在容器后端跳过——容器即边界。</li>
+      <li>不可信代码最佳实践：<code>TERMINAL_ENV=docker</code>（Docker/Daytona）。</li>
+      <li>两个例外：硬核黑名单（<code>rm -rf /</code>、fork bomb）容器内<strong>仍不跳过</strong>；绑定宿主机路径（<code>MOUNT_CWD_TO_WORKSPACE=true</code>）时 Docker 停止跳过。</li>
+    </ul>
+  </div>
+
+  <h3>3.2 记忆系统深挖（专项研究，9 条 3-0）</h3>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">M1</span><strong>双文件冻结快照</strong> <span class="conf">3-0</span></p>
+    <p><code>~/.hermes/memories/</code> 下 <code>MEMORY.md</code>（2,200 字符，~800 token）与 <code>USER.md</code>（1,375 字符，~500 token），字符上限经 <code>memory.memory_char_limit / user_char_limit</code> 可配。源码 <code>tools/memory_tool.py:165</code> 精确一致。字符计数是"模型无关"的设计选择。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">M2</span><strong>冻结快照 = 缓存保护</strong> <span class="conf">3-0</span></p>
+    <p>快照在会话开始捕获一次，<strong>中途永不改写系统提示词</strong>——故意保护 LLM 前缀缓存。中途写入即时落盘但<strong>不</strong>进提示词，直到下个会话（或上下文压缩重建）；工具响应始终显示实时状态。源码：<code>agent/system_prompt.py</code> 缓存提示词于 agent 生命周期；<code>save_to_disk()</code> 每次变更即原子写盘。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">M3</span><strong>不自动合并</strong> <span class="conf">3-0</span></p>
+    <p>记忆满时 <code>add</code> 被拒（不截断不静默丢弃），返回错误要求<strong>同一回合内</strong>用 <code>replace</code> 合并 / <code>remove</code> 删旧再重试。文档建议 <strong>80% 容量</strong>即合并。每回合最多失败 3 次（<code>_MAX_CONSOLIDATION_FAILURES_PER_TURN=3</code>）后终止"save skipped"。</p>
+    <p class="mute">错误原文："Consolidate now: use replace to merge overlapping entries into shorter ones or remove stale or less important entries..., then retry this add — all in this turn."</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">M4</span><strong>可插拔 provider</strong> <span class="conf">3-0</span></p>
+    <p>内置记忆<strong>始终叠加激活</strong>，外置 provider 恰好 8 个：Honcho、OpenViking、Mem0、Hindsight、Holographic、RetainDB、ByteRover、Supermemory。同时最多一个（<code>memory.provider</code> 配置），防工具 schema 膨胀与后端冲突。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">M5</span><strong>每回合生命周期</strong> <span class="conf">3-0</span></p>
+    <p>外置 provider：每次 API 调用前 <code>prefetch()</code> 快速后台召回；每回合后 <code>sync_turn()</code> 非阻塞持久化，跑在<strong>单后台 worker</strong>（max_workers=1）上串行——慢 provider 永不卡住回合。内置记忆两者皆 no-op（全靠冻结快照 + memory 工具）。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">M6</span><strong>系统提示词三层结构</strong> <span class="conf">3-0</span></p>
+    <p>内置记忆快照、用户画像快照、外置 provider 块、时间戳/会话/模型行都坐在系统提示词的<strong>volatile 层</strong>——但仍是"每次会话构建一次、全回合复用"的缓存提示词，不是逐回合临时注入。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s1)">M7</span><strong>mem0 插件</strong> <span class="conf">3-0</span></p>
+    <ul>
+      <li>三连接模式：Platform（api.mem0.ai 托管云，默认，需 MEM0_API_KEY）、Self-hosted（Docker 跑 Mem0 server，HTTP + X-API-Key）、OSS（进程内 mem0ai，自带 LLM/embedder/vector store）。</li>
+      <li>恰好四工具：<code>mem0_search / mem0_add / mem0_update / mem0_delete</code>。</li>
+      <li><code>mem0_add</code> 原样存事实（<code>infer=False</code>）；LLM 语义抽取由 <code>sync_turn</code> 回调用 <code>infer=True</code> 单独完成。</li>
+    </ul>
+  </div>
+
+  <h2 id="openclaw">四、OpenClaw — 对比基线</h2>
+  <p>OpenClaw 是个人 AI 助手类 harness 的成熟基线：多平台网关（Telegram/Discord/Slack/WhatsApp/Signal 等），配置体系含 <code>SOUL.md / AGENTS.md / MEMORY.md</code>，有子代理能力。其 PR #53212（拆分系统提示词静态/动态块以保缓存前缀）与 Hermes 的缓存经济学形成互证。</p>
+  <p>关键事实：Hermes 官方提供 <strong>《Migrate from OpenClaw》</strong>指南——<code>hermes claw migrate</code> 直接导入 <code>~/.openclaw/</code> 的 <code>SOUL.md</code>/<code>AGENTS.md</code>/<code>MEMORY.md</code>。这是本报告中最硬的"两项目关系"证据：<strong>OpenClaw 是 Hermes 的迁移源，Hermes 是 OpenClaw 的迁移目标</strong>。</p>
+  <div class="warn"><b>注意：</b>OpenClaw 在本轮四份研究中的独立 claim 验证较少（主要作为对比基线出现）。其平台数、记忆细节此前报告已有覆盖，未重复验证。</div>
+
+  <h2 id="openhuman">五、OpenHuman — 架构深挖</h2>
+  <p class="mute">GPL-3.0 · ~36k stars · 早期 beta · 本地优先 · 23 条确认 / 2 条证伪</p>
+
+  <h3>5.1 核心：tinyagents 2.1 图引擎</h3>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s3)">A1</span><strong>Graphs, not loops</strong> <span class="conf">18-0 最强证据</span></p>
+    <p>每个 agent 回合、子代理委派、保存的工作流都编译为<strong>检查点状态机图</strong>：可暂停等人工（HITL）、可跨重启恢复、精确续跑。旧自研 <code>run_turn_engine</code> 已删除，三入口（<code>Agent::turn</code>、channel/CLI 总线、<code>run_subagent</code>）统一走 <code>run_turn_via_tinyagents_shared</code>。无进展断路器（identical-call 阈值=3）。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s3)">A2</span><strong>多代理编排原语</strong> <span class="conf">6-0</span></p>
+    <p><code>graph::parallel::map_reduce</code> 扇出 + <code>spawn_parallel_graph</code> 脚手架 + TaskStore 生命周期；委派流程 <code>plan → execute ⇄ review → finalize</code> CompiledGraph，用条件路由、RecursionPolicy、FileCheckpointer、CancellationToken、GraphTracingSink。⚠️ 迁移部分进行中（issue #4249），持久检查点适配器状态未完全解决。</p>
+  </div>
+
+  <h3>5.2 Memory Tree</h3>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s3)">A3</span><strong>确定性桶密封管道</strong> <span class="conf">11-1</span></p>
+    <p>源 → 规范化 Markdown → ≤3k-token 分块 → 评分（信号+嵌入+实体抽取）→ 折叠进 per-source/per-topic/per-day 树。存 SQLite（<code>&lt;workspace&gt;/memory_tree/chunks.db</code>）+ 可编辑 <code>.md</code> 于 <code>wiki/</code>，镜像为 <strong>Obsidian vault</strong>——"不是向量汤黑盒"。</p>
+    <p class="quote">"tree::bucket_seal appends the leaf to the open bucket at L0. If the bucket fills, it seals: summarise.rs produces the L1 summary, which becomes a leaf in the L1 bucket, and the cascade continues upward until a non-full bucket is hit."</p>
+    <p><span class="conf">3-0</span> Global/Topic 派生树已删除（不含原创内容），只保留 Source 树 + 实体索引。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s3)">A4</span><strong>读源 + 写目标</strong> <span class="conf">3-0</span></p>
+    <p>回合前记忆加载器注入相关 chunk（带引用溯源）；回合后 archivist 蒸馏长期事实 + 情节索引，后台 <code>tokio::spawn</code> 写回为新 chunk。</p>
+  </div>
+
+  <h3>5.3 编排与安全</h3>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s3)">A5</span><strong>20 分钟自动抓取</strong> <span class="conf">13-2</span></p>
+    <p>全局定时器 <code>TICK_SECONDS=1200</code>，每 tick 遍历活动集成，按各自间隔调 <code>provider.sync(SyncReason::Periodic)</code>，新数据走与手动相同的 ingest 管道。⚠️ 文档说"每 20 分钟"，但代码默认 <code>sync_interval_secs=24h</code>——实际每连接节奏可能慢得多。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s3)">A6</span><strong>Signal E2E 编排</strong> <span class="conf">Signal 部分 6-0 / x402 部分 2-1</span></p>
+    <p>tiny.place 会话用 Signal 协议（X3DH + Double Ratchet）真端到端加密；身份密钥设备端生成、<strong>永不落盘</strong>；配对基于同意（pending→linked→blocked）且 fails-closed（未配对的 agent 消息只当"消息"不当"指令"）。x402 支付（USDC）仅 vendor 声称，未独立审计。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s3)">A7</span><strong>分裂脑常开架构</strong> <span class="conf">3-0</span></p>
+    <p>快速反射 agent（秒级分诊，可用 gemma3:1b 这种小模型）→ 深度推理核心 → "潜意识" Deep Reflection Layer 以 <strong>20:1 压缩</strong>回顾会话历史并注入 <code>STEERING_DIRECTIVE</code>，使周级会话保持有界。</p>
+  </div>
+
+  <h2 id="holaos">六、holaOS — 架构与定位</h2>
+  <p class="mute">Modified Apache 2.0 · ~5.5k stars / 397 forks · 本地优先 TypeScript/Electron · 23 条确认 / 2 条证伪</p>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s4)">H1</span><strong>定位：工作区层，非执行器</strong> <span class="conf">3-0</span></p>
+    <p>同一工作区并排跑 <strong>Claude Code / Codex / 自研 holaOS agent</strong>，共享记忆、工具、MCP 服务器、技能、应用（agent-agnostic，无锁定）。竞争对象是 <strong>agent SDK</strong>（Cline SDK、Anthropic Agent SDK、OpenAI Agent SDK），而非执行器。每个 workspace 是长期运行的 AI 环境，跨会话携带记忆/应用/文件/输出/自动化。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s4)">H2</span><strong>架构</strong> <span class="conf">3-0</span></p>
+    <p>TypeScript monorepo（Node 24.14.1，bun/turbo）：<code>desktop</code>（Electron ^41.2.0）、<code>runtime</code>（harness-host、state-store、api-server）、<code>sdk</code>（app-sdk）。<strong>MCP 一等公民</strong>——runtime 作为 MCP 客户端发现并绑定本地/远程工具服务器。运行时打包为平台特定 bundle 从 GitHub Releases 拉取。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s4)">H3</span><strong>单一共享 markdown 记忆</strong> <span class="conf">3-0（代码级验证）</span></p>
+    <p>文件系统后备、纯 markdown、人类可读可编辑、本地优先不云锁。实现：<code>turn-memory-writeback.ts</code> 写 <code>identity/*.md</code>、<code>preference/*.md</code>、<code>workspace/&lt;id&gt;/knowledge/{procedures,blockers,reference,facts}/*.md</code>；<code>memory-recall-manifest.ts</code> 解析 YAML frontmatter；SQLite embedding 索引只是派生层。<code>memory_retrieve/remember</code> 工具暴露给外部 harness（Claude Code/Codex）共用同一记忆。</p>
+  </div>
+  <div class="card">
+    <p><span class="tag" style="background:var(--s4)">H4</span><strong>Workspace 模型</strong> <span class="conf">3-0</span></p>
+    <p>每 workspace 自包含：自己的 agent 身份、跨会话记忆、已装平台应用（Gmail/LinkedIn/Reddit/GitHub/Google Sheets）、markdown skills（共享 house-style 指令）、定时/事件自动化。workspaces 不共享状态。Beta 0.1（2026-05，macOS）三大支柱：Multi Workspaces / Sub Agents / Dashboards。</p>
+  </div>
+  <div class="warn"><b>重要 caveat：</b>holaOS 与 Hermes/OpenClaw/OpenHuman 的<strong>直接对比 claims 均未通过 3 票验证</strong>（各 1-2 被证伪）。只有它自己的定位（工作区层 vs agent SDK）存活。请勿把四者间的竞争关系当既定事实。另：<code>ninjahawk/hollow-agentOS</code> 是无关项目（消费硬件自修改系统，~291 stars），勿混淆。</div>
+
+  <h2 id="positioning">七、生态定位与选型建议</h2>
+  <div class="twrap">
+    <table>
+      <caption>按需求选型。</caption>
+      <thead><tr><th>你的需求</th><th>推荐</th><th>理由</th></tr></thead>
+      <tbody>
+        <tr><td>想从 OpenClaw 迁移 / 单订阅多平台 / 自主长时任务</td><td>Hermes Agent</td><td>官方迁移指南、Nous Portal 单订阅、20+ 平台、四条成熟最佳实践</td></tr>
+        <tr><td>要跨 Claude Code / Codex 的工作区层与持久化多工作流</td><td>holaOS</td><td>位于执行器之上，共享 markdown 记忆与 MCP，agent-agnostic</td></tr>
+        <tr><td>要编排多个现有 agent + 本地优先可审计记忆</td><td>OpenHuman</td><td>tinyagents 图引擎、Memory Tree、Signal E2E（注意早期 beta）</td></tr>
+        <tr><td>多平台个人助手基线</td><td>OpenClaw</td><td>成熟基线，或作为 Hermes 迁移源</td></tr>
+        <tr><td>提示词缓存敏感的长会话</td><td>参考 Hermes BP2 / 记忆设计</td><td>冻结快照、稳定前缀、单 worker 串行同步——三条都可移植</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>可移植的设计模式</strong>（四项目反复出现的共同智慧）：① 记忆有界 + 冻结快照以保护缓存（Hermes / 隐含于 holaOS 的 manifest 层）；② 不可信执行放容器（Hermes BP4）；③ 检查点/可恢复执行胜过裸循环（OpenHuman 图引擎）；④ MCP 作为一等公民统一工具层（holaOS）。</p>
+
+  <h2 id="verification">八、验证方法与边界</h2>
+  <div class="card">
+    <ul>
+      <li><strong>方法</strong>：每轮 5-6 个搜索角度 → 抓取 17-22 个来源 → 提取 80-105 条 falsifiable claims → <strong>3 票对抗验证</strong>（2/3 票证伪即杀）→ 合成去重后按置信排序。</li>
+      <li><strong>规模</strong>：4 轮共 405 个研究代理、3,882 次工具调用、~644 万 token。确认 95 条、证伪 5 条、0 条未验证。</li>
+      <li><strong>时间性</strong>：全部验证于 2026-08-05 的 live main 分支；项目活跃演进，具体数字（stars、版本）会漂移。</li>
+      <li><strong>依赖来源</strong>：OpenHuman 与 holaOS 的 claims 主要来自项目自己的文档/源码（描述性架构 claim 的合理来源），但 OpenHuman"早期 beta"、无独立安全审计；holaOS 基准为厂商自述。</li>
+      <li><strong>未覆盖</strong>：无独立 hands-on 实测；holaOS 与前三者的对比关系未能验证；OpenHuman 的持久检查点迁移状态未解决。</li>
+    </ul>
+  </div>
+
+  <h2 id="sources">九、来源清单</h2>
+  <details>
+    <summary>Hermes / OpenClaw（首轮，10 条发现）</summary>
+    <p class="src">hermes-agent.nousresearch.com/docs · github.com/NousResearch/hermes-agent (tips.md, README, migrate-from-openclaw.md, run-hermes-with-nous-portal.md, automate-with-cron.md) · plugins/memory/mem0/README.md · docs.mem0.ai/integrations/hermes · github.com/tinyhumansai/openhuman · github.com/senamakel/openhuman</p>
+  </details>
+  <details>
+    <summary>OpenHuman 架构（8 条发现）</summary>
+    <p class="src">github.com/tinyhumansai/openhuman (README, gitbooks/developing/architecture/*, gitbooks/features/*, PR #3059, src/openhuman/…) · tinyagents crate (crates.io)</p>
+  </details>
+  <details>
+    <summary>holaOS（9 条发现）</summary>
+    <p class="src">github.com/holaboss-ai/holaOS (README, INSTALL.md, LICENSE) · holaos.ai/docs · creativeainews.com · testingcatalog.com · aisdignal.dev · sotasync.com · kucoin.com · github-wiki.com · ninjahawk/hollow-agentOS（仅作命名澄清）</p>
+  </details>
+  <details>
+    <summary>Hermes 记忆系统（9 条发现）</summary>
+    <p class="src">github.com/NousResearch/hermes-agent (tools/memory_tool.py, agent/system_prompt.py, agent/memory_provider.py, agent/memory_manager.py, website/docs/user-guide/features/memory.md, website/docs/developer-guide/prompt-assembly.md, plugins/memory/mem0/README.md) · hermes-agent.nousresearch.com/docs（含 zh-Hans 镜像）</p>
+  </details>
+
+  <p class="mute" style="margin-top:34px;border-top:1px solid var(--gridline);padding-top:14px;">本报告由 Claude Code 深度研究工作流生成。All claims adversarially verified; figures are snapshots as of 2026-08-05.</p>
+</div>
+
+<script>
+(function(){
+  var root = document.getElementById('root');
+  var btn = document.getElementById('toggle');
+  btn.addEventListener('click', function(){
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    btn.textContent = next === 'dark' ? '切换亮色模式' : '切换暗色模式';
+  });
+})();
+</script>
+</body>
+</html>

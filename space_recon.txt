@@ -1,0 +1,19 @@
+﻿Dir	GB
+$AV_ASW	0
+$RECYCLE.BIN	0
+$WinREAgent	0
+data	0
+Documents and Settings	0
+Exercism	0.01
+inetpub	0
+Intel	0
+kingsoft	0
+list	0
+MSOCache	0
+new_tdx64	0.51
+new_tdx_mock	0.46
+PerfLogs	0
+pool	0
+Program Files	6.8
+Program Files (x86)	2.7
+ProgramData	1.38
